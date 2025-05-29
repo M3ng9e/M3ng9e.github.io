@@ -17,18 +17,18 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
   <meta name="theme-color" content="#f9fafb">
   
-  <title>小王随笔：年华就该是温润、流动，但只能缓缓向前 - M3ng9e</title>
+  <title>WebSec：Web URL 路由解析机制详解 - M3ng9e</title>
 
   
-    <meta name="description" content="我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。 ——《蓝色大门》  Hi, Dear Meng. 现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。 站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐">
+    <meta name="description" content="常见的Web URL 路由解析机制总结如下。 基于文件目录 原理：URL 路径直接映射服务器物理文件路径。  区分：  &#x2F;admin&#x2F;  表示访问的是 admin 目录，会访问 admin 目录下的索引文件。 &#x2F;admin   表示访问的是 admin 文件，如果没有这个文件，就返回 404。   适用场景：静态网站、传统 PHP&#x2F;HTML 项目。  局限：">
 <meta property="og:type" content="website">
-<meta property="og:title" content="年华就该是温润、流动，但只能缓缓向前">
-<meta property="og:url" content="https://m3ng9e.github.io/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html">
+<meta property="og:title" content="Web URL 路由解析机制详解">
+<meta property="og:url" content="https://m3ng9e.github.io/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html">
 <meta property="og:site_name" content="M3ng9e">
-<meta property="og:description" content="我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。 ——《蓝色大门》  Hi, Dear Meng. 现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。 站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐">
+<meta property="og:description" content="常见的Web URL 路由解析机制总结如下。 基于文件目录 原理：URL 路径直接映射服务器物理文件路径。  区分：  &#x2F;admin&#x2F;  表示访问的是 admin 目录，会访问 admin 目录下的索引文件。 &#x2F;admin   表示访问的是 admin 文件，如果没有这个文件，就返回 404。   适用场景：静态网站、传统 PHP&#x2F;HTML 项目。  局限：">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2022-12-15T09:56:42.000Z">
-<meta property="article:modified_time" content="2025-03-26T09:09:15.188Z">
+<meta property="article:published_time" content="2025-05-29T08:24:45.828Z">
+<meta property="article:modified_time" content="2025-05-29T08:24:45.828Z">
 <meta property="article:author" content="M3ng9e">
 <meta name="twitter:card" content="summary">
   
@@ -52,26 +52,24 @@
 </head>
 <body>
 
-
+<div class="l_cover wiki"><article class="cover-wrap md-text"><div class="preview cover"><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小太阳.png"/></div><div class="cover-title"><span>Web安全</span></div><div class="description">对于Web安全漏洞原理及挖掘手法进行精炼总结，以便于自己翻阅。</div><div class="start-wrap"><a class="button start gradient" href="#start">开始使用</a></div></article></div><hr>
 
 <div class="l_body s:aa content tech" id="start" layout="page" ><aside class="l_left"><div class="leftbar-container">
 
 
-<header class="header"><div class="logo-wrap"><div class="icon"><img no-lazy class="icon" src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小红花.png" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></div><a class="title" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html"><div class="main" ff="title">小王随笔</div></a></div></header>
+<header class="header"><div class="logo-wrap"><div class="icon"><img no-lazy class="icon" src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小太阳.png" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></div><a class="title" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html"><div class="main" ff="title">WebSec</div><div class="sub normal cap">Web安全</div><div class="sub hover cap" style="opacity:0"> 没有绝对安全的系统</div></a></div></header>
 
 <div class="nav-area">
-<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="在 小王随笔 中搜索"></form><div id="search-result"></div><div class="search-no-result">没有找到内容！</div></div>
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" data-filter="/wiki/WebSec/" placeholder="在 WebSec中搜索..."></form><div id="search-result"></div><div class="search-no-result">没有找到内容！</div></div>
 
 
-<nav class="menu dis-select"><a class="nav-item" title="博客" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="wiki知识库" href="/wiki/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item active" title="小王日记" href="/notes/" style="color:#FA6400"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M20 12a8 8 0 1 1-16 0a8 8 0 0 1 16 0" opacity=".5"/><path fill="currentColor" d="M17.712 5.453c1.047-.193 2.006-.259 2.797-.152c.77.103 1.536.393 1.956 1.064c.446.714.312 1.542-.012 2.258c-.33.728-.918 1.499-1.672 2.268c-1.516 1.547-3.836 3.226-6.597 4.697c-2.763 1.472-5.495 2.484-7.694 2.92c-1.095.217-2.098.299-2.923.201c-.8-.095-1.6-.383-2.032-1.075c-.47-.752-.296-1.63.07-2.379c.375-.768 1.032-1.586 1.872-2.403L4 12.416c0 .219.083.71.168 1.146c.045.23.09.444.123.596c-.652.666-1.098 1.263-1.339 1.756c-.277.567-.208.825-.145.925c.072.116.305.305.937.38c.609.073 1.44.018 2.455-.183c2.02-.4 4.613-1.351 7.28-2.772c2.667-1.42 4.85-3.015 6.23-4.423c.694-.707 1.15-1.334 1.377-1.836c.233-.515.167-.75.107-.844c-.07-.112-.289-.294-.883-.374c-.542-.072-1.272-.041-2.163.112L16.87 5.656c.338-.101.658-.17.842-.203"/></svg></a><a class="nav-item" title="关于我" href="/about/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a></nav>
+<nav class="menu dis-select"><a class="nav-item" title="博客" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item active" title="wiki知识库" href="/wiki/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="小王日记" href="/notes/" style="color:#FA6400"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M20 12a8 8 0 1 1-16 0a8 8 0 0 1 16 0" opacity=".5"/><path fill="currentColor" d="M17.712 5.453c1.047-.193 2.006-.259 2.797-.152c.77.103 1.536.393 1.956 1.064c.446.714.312 1.542-.012 2.258c-.33.728-.918 1.499-1.672 2.268c-1.516 1.547-3.836 3.226-6.597 4.697c-2.763 1.472-5.495 2.484-7.694 2.92c-1.095.217-2.098.299-2.923.201c-.8-.095-1.6-.383-2.032-1.075c-.47-.752-.296-1.63.07-2.379c.375-.768 1.032-1.586 1.872-2.403L4 12.416c0 .219.083.71.168 1.146c.045.23.09.444.123.596c-.652.666-1.098 1.263-1.339 1.756c-.277.567-.208.825-.145.925c.072.116.305.305.937.38c.609.073 1.44.018 2.455-.183c2.02-.4 4.613-1.351 7.28-2.772c2.667-1.42 4.85-3.015 6.23-4.423c.694-.707 1.15-1.334 1.377-1.836c.233-.515.167-.75.107-.844c-.07-.112-.289-.294-.883-.374c-.542-.072-1.272-.041-2.163.112L16.87 5.656c.338-.101.658-.17.842-.203"/></svg></a><a class="nav-item" title="关于我" href="/about/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a></nav>
 </div>
 <div class="widgets">
 
-<widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">所思所念</span></div><div class="widget-body fs14"><a class="link active" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html#start"><span class="toc-text">年华就该是温润、流动，但只能缓缓向前</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a></div></widget>
+<widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">零碎的基础知识</span></div><div class="widget-body fs14"><a class="link active" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html#start"><span class="toc-text">Web URL 路由解析机制详解</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a></div><div class="widget-header dis-select"><span class="name">服务器端漏洞</span></div><div class="widget-body fs14"><a class="link" href="/wiki/WebSec/SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80.html"><span class="toc-text">SQL注入基础</span></a><a class="link" href="/wiki/WebSec/API%E6%B5%8B%E8%AF%95.html"><span class="toc-text">API测试</span></a></div></widget>
 
-
-
-<widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">最近更新</span></div><div class="widget-body fs14"><a class="item title" href="/posts/7de6854f.html"><span class="title">利用HTTP请求格式绕过WAF技术解析</span></a><a class="item title" href="/posts/48181fae.html"><span class="title">stellar博客主题配置及踩坑记录</span></a><a class="item title" href="/posts/dde44b6c.html"><span class="title">Web URL 路由解析机制详解</span></a></div></widget>
+<widget class="widget-wrapper post-card"><div class="widget-header dis-select"><span class="name">更多：知识库</span></div><div class="widget-body"><a class="item wiki" href="/wiki/CTF/CTFshow-web%E5%85%A5%E9%97%A81000%E9%A2%98.html"><span class="title">CTF</span><span class="excerpt">Re:从0开始的CTF修炼之路</span></a></div></widget>
 </div>
 
 </div></aside><div class="l_main" id="main">
@@ -83,77 +81,104 @@
 <div class="article banner top">
   <div class="content">
     <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a>
-<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/wiki">文档</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html">小王随笔</a></div>
-<div class="flex-row" id="post-meta"><span class="text created">更新于：<time datetime="2025-03-26T09:09:15.188Z">2025-03-26</time></span></div></div></div>
+<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/wiki">文档</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html">WebSec</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">更新于：<time datetime="2025-05-29T08:24:45.828Z">2025-05-29</time></span></div></div></div>
     
     <div class="bottom only-title">
       
       <div class="text-area">
-        <h1 class="text title"><span>年华就该是温润、流动，但只能缓缓向前</span></h1>
+        <h1 class="text title"><span>Web URL 路由解析机制详解</span></h1>
         
       </div>
     </div>
     
   </div>
-  </div><article class="md-text content"><blockquote>
-<p>我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。</p>
-<p>——《蓝色大门》</p>
-</blockquote>
-<p><strong>Hi, Dear Meng.</strong></p>
-<p>现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。</p>
-<p>站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐。这些日子里你成长了些许，也经历了不少，走过了一个个的岔路口，反复向自己问询人生的答案。</p>
-<p>我究竟向往的是什么？人生的意义是什么？努力真的有用吗？我会不会很差劲很笨？为什么我总是坚持不下来？真的一辈子要做这一行嘛？</p>
-<p>在很多个躺在床上睡不着的夜晚里，你有很多问题找不到答案。</p>
-<p>你有很多想法，一些灵机一动的创业 idea。有很多想去的地方，冰岛、大理、威海、海南等，王阳明先生的龙场，鲁迅先生的三味书屋等等。有很多想看的书，想看的电影和剧、想发展艺术、想去国外留学。</p>
-<p>你对未来的生活充满了很多幻想，但生活充满了不定性，对父母日渐苍老的恐慌，对工作或读研的焦虑，夹杂着一事无成的迷茫。</p>
-<p>也好在你还有很多无条件永远支持你的人，家人，老师，好朋友。好在你经常自省，如果用《夏日重现》里的话说就是俯瞰自己。也好在你才二十二岁，还年轻，有激情。</p>
-<p>要知道我们从来都不是为了谁而活着，所以请尽情地、努力地、真实地去做那个你心目中的自己。有挫折是为了让你变强，有冷眼嘲笑也没什么大不了，静下心来去做自己的事情好了。</p>
-<p>就像你喜欢的朋友圈仅自己可见的那句话说的：</p>
-<blockquote>
-<p>无人问津也好，技不如人也罢，你要试着安静下来，去做自己该做的事，而不是让内心烦躁、焦虑，毁掉你本就不多的热情和定力。</p>
-</blockquote>
-<p>你最近还偶尔熬夜刷了一些剧，《Breaking Bad》、《Better Call Saul》等。老白和吉米的故事很吸引你，有时候也会想：</p>
-<p>如果知道自己的人生只剩下那么两年，你会做什么？生命真的很长吗？</p>
-<p>我们日复一日地度过自己的人生，有时争分夺秒，有时却又大手挥霍。我们又有多少时间呢？</p>
-<p>认真地想了这个问题，于是你算了算。</p>
+  </div><article class="md-text content"><p>常见的Web URL 路由解析机制总结如下。</p>
+<h2 id="基于文件目录"><a href="#基于文件目录" class="headerlink" title="基于文件目录"></a>基于文件目录</h2><ul>
+<li><p><strong>原理</strong>：URL 路径直接映射服务器物理文件路径。</p>
+</li>
+<li><p><strong>区分</strong>：</p>
 <ul>
-<li>假设活到 60 岁，你剩下 37 年，13505 天。</li>
-<li>如果每天当作一局游戏的话，你只剩下一万多局。</li>
-<li>每天睡眠、吃饭、洗澡花费 10 小时，你真正拥有属于自己的时间只有 <strong>7877 天</strong>。</li>
+<li>&#x2F;admin&#x2F;  表示访问的是 admin 目录，会访问 admin 目录下的索引文件。</li>
+<li>&#x2F;admin   表示访问的是 admin 文件，如果没有这个文件，就返回 404。</li>
 </ul>
-<p>你有很多目标想在 <strong>28 岁</strong>之前实现的，1825 天的时间，计算下来，时间真的好少。成为专家需要一万个小时，每天学习 10 小时，至少得坚持三年。坚持，简单两个字，却是难以坚持。</p>
-<p>但时间本就不应该被这么精打细算吧？这样活得不自由、也不快乐。</p>
-<p>谈到太远大、难以实现的目标，总是让人心生惧怕，不想面对。</p>
-<p>在学校里跑步的时候，你信誓旦旦地和舍友说自己今天要跑 <strong>5 公里不停</strong>，可是一想到五公里要在操场上跑 12.5 圈，你便犹豫了。</p>
-<p>“天啊，持续跑 5 圈已经很累了好吗！”，于是那天你没去。</p>
-<p>但你是一个喜欢和自己较劲的人。第二天，你看到 <strong>跑 5 公里需要 35 分钟左右</strong>，你很质疑。于是你决定试试。</p>
-<p>你看着手表，一公里、二公里、三点八公里、四点六公里，心里想着再多跑两圈就好了。最终你一身汗跑完了 <strong>5.03KM</strong>，花了 <strong>32 分 13 秒</strong>。中途有三四次想放弃，但你没有停下来。</p>
-<p>其实你都明白，很多目标和跑步一样，做好规划，知行合一，一步一个脚印，一定会好的。</p>
-<blockquote>
-<p>如阳明先生所说：“吾心自有光明月，千古团圆永无缺。”</p>
-<p>知是行之始，行是知之成。</p>
-</blockquote>
-<p>做到心中无愧，知行合一就很好了。</p>
-<p>当然，对于未来也不必太过焦虑。</p>
-<p>仔细想想，最初的梦想和初衷都还在，距离它，是不是更近了一些呢？</p>
-<p>好像是的。</p>
-<p>你很喜欢 UP 主 <strong>小鹿</strong>采访乌镇和黄磊的最新一期结尾里看着被风吹拂的湖面说的那句话：</p>
-<blockquote>
-<p>年华就该是温润、流动，但只能缓缓向前。</p>
-</blockquote>
-<p><strong>你想起了四年前和好友去杭州游玩时看到的西湖湖面。想必在没有见面的日子里，大家也都在温润地、流动地、缓缓向前。</strong></p>
-<p>最后送你一句话吧，来自《绝命毒师》剧场版的结尾，小粉和 Jane 的对话：</p>
-<blockquote>
-<p>“I’ve gone where the universe takes me my whole life, It’s better to make those decisions for yourself.”</p>
-<p>“在浩瀚的宇宙中随波逐流，不如追寻你的心之所向。</p>
-</blockquote>
-<div style="text-align: right;">
-希望你越来越好的自己
-<div style="text-align: right;">
-2022.12.15
+</li>
+<li><p><strong>适用场景</strong>：静态网站、传统 PHP&#x2F;HTML 项目。</p>
+</li>
+<li><p><strong>局限</strong>：灵活性低，难以处理动态逻辑或隐藏实际文件路径。安全性低，容易暴露目录结构。</p>
+</li>
+</ul>
+<h2 id="基于路由"><a href="#基于路由" class="headerlink" title="基于路由"></a>基于路由</h2><ul>
+<li><p><strong>原理</strong>：URL 路径由框架的路由机制解析，映射到处理函数或控制器，与物理路径无关。</p>
+</li>
+<li><p><strong>两种子类型：</strong></p>
+<ul>
+<li><p>后端路由（  如 Express (Node.js), Django (Python), Spring MVC (Java), Laravel (PHP)  ）</p>
+<ul>
+<li><p><strong>特点</strong>：服务器端渲染 (SSR) 或 API 接口，处理业务逻辑，返回 HTML&#x2F;JSON&#x2F;XML。</p>
+<figure class="highlight stylus"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">https:<span class="comment">//api.example.com/users/123</span></span><br><span class="line">-&gt;  </span><br><span class="line">Express<span class="selector-class">.js</span> </span><br><span class="line">app<span class="selector-class">.get</span>(<span class="string">&#x27;/users/:id&#x27;</span>, userController.getUser)</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+<li><p>前端路由（ React Router, Vue Router, Angular Router。 ）：</p>
+<ul>
+<li><p><strong>特点</strong>：单页应用 (SPA) 核心，无刷新切换视图，URL 与 UI 状态同步。</p>
+</li>
+<li><p><strong>模式</strong>：Hash 模式 (<code>#/profile</code>), History 模式 (<code>/profile</code>)。</p>
+<figure class="highlight clean"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">https:<span class="comment">//app.example.com/profile </span></span><br><span class="line">-&gt; </span><br><span class="line">React Router </span><br><span class="line">&lt;Route path=<span class="string">&quot;/profile&quot;</span> element=&#123;&lt;ProfilePage/&gt;&#125;&gt;</span><br></pre></td></tr></table></figure></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><strong>适用场景</strong>：动态网站、Web 应用、API 服务、SPA。</p>
+</li>
+</ul>
+<h2 id="混合模式"><a href="#混合模式" class="headerlink" title="混合模式"></a>混合模式</h2><ul>
+<li><p><strong>原理</strong>：结合文件目录约定和路由定义，通常用于全栈框架，实现“约定优于配置”。文件位置自动映射为路由。</p>
+<figure class="highlight xl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Next.js (React)：</span><br><span class="line"></span><br><span class="line">/<span class="function"><span class="title">pages</span>/index.js -&gt;</span> /</span><br><span class="line"></span><br><span class="line">/<span class="function"><span class="title">pages</span>/about.js -&gt;</span> /about</span><br><span class="line"></span><br><span class="line">/<span class="function"><span class="title">pages</span>/api/<span class="keyword">data</span>.js -&gt;</span> /api/<span class="keyword">data</span> (API路由)</span><br><span class="line"></span><br><span class="line">/<span class="function"><span class="title">pages</span>/blog/[slug].js -&gt;</span> /blog/hello-world (动态路由)</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>适用场景</strong>：需要快速开发、兼顾前后端逻辑、支持多种渲染模式（SSR, SSG, CSR）的现代 Web 应用。</p>
+</li>
+</ul>
+<p>​	<mark class="tag-plugin colorful mark" color="red">思考</mark>：访问 <a target="_blank" rel="noopener" href="http://www.baidu.com/index.php">www.baidu.com/index.php</a> 成功就可以断定百度是 php 写的吗？所以百度的首页是 idnex.php 	吗？</p>
+<p>​	不是的，百度后端只是绑定 index.php 路由到某个返回结果上，不能访问 index.php 成功就认为这个文件存在。所见非真！</p>
+<h2 id="虚拟路径"><a href="#虚拟路径" class="headerlink" title="虚拟路径"></a>虚拟路径</h2><ul>
+<li><p><strong>原理</strong>：URL 路径是“虚构”的，不代表真实文件位置。服务器端逻辑根据路径参数动态生成或获取资源。</p>
+</li>
+<li><p><strong>URL 示例</strong>：</p>
+<ul>
+<li><strong>网易云音乐</strong>：<code>https://music.163.com/song/media/outer/url?id=1867217766.mp3</code> (服务器根据 <code>id</code> 从数据库&#x2F;CDN 获取音频流)</li>
+<li><strong>YouTube 视频</strong>：<code>https://www.youtube.com/watch?v=dQw4w9WgXcQ</code> (服务器根据 <code>v</code> 参数查找视频流)</li>
+<li><strong>动态图片生成</strong>：<code>https://example.com/chart?type=bar&amp;data=[1,2,3]</code> (服务器动态生成图表图片)</li>
+</ul>
+</li>
+<li><p><strong>适用场景</strong>：媒体流服务（音乐&#x2F;视频）、动态生成内容（图表、报告）、需要权限控制的资源、CDN 入口、短链接服务、API 网关路由。</p>
+</li>
+</ul>
+<h2 id="RESTful-API-资源"><a href="#RESTful-API-资源" class="headerlink" title="RESTful API 资源"></a>RESTful API 资源</h2><ul>
+<li><p><strong>原理</strong>：URL 代表资源本身，HTTP 方法 (GET, POST, PUT, DELETE) 代表对资源的操作。URL 结构通常设计为名词复数形式。</p>
+</li>
+<li><p><strong>URL 示例</strong>：</p>
+<ul>
+<li><code>GET /api/users</code> - 获取用户列表</li>
+<li><code>GET /api/users/123</code> - 获取 ID 为 123 的用户</li>
+<li><code>POST /api/users</code> - 创建新用户</li>
+<li><code>PUT /api/users/123</code> - 更新用户 123</li>
+<li><code>DELETE /api/users/123</code> - 删除用户 123</li>
+</ul>
+</li>
+<li><p><strong>适用场景</strong>：构建 Web API 服务，供前端或其他系统消费数据。是现代前后端分离架构的核心。</p>
+</li>
+</ul>
+<h2 id="GraphQL-单一端点"><a href="#GraphQL-单一端点" class="headerlink" title="GraphQL 单一端点"></a>GraphQL 单一端点</h2><ul>
+<li><p><strong>原理</strong>：所有请求都发送到同一个端点 (通常是 <code>/graphql</code>)。客户端通过查询语句精确指定需要的数据结构和字段。</p>
+</li>
+<li><p><strong>请求示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">请求：</span><br><span class="line"></span><br><span class="line">POST /graphql</span><br><span class="line">&#123;</span><br><span class="line">  query: `</span><br><span class="line">    query &#123;</span><br><span class="line">      user(id: &quot;123&quot;) &#123;</span><br><span class="line">        name</span><br><span class="line">        email</span><br><span class="line">        posts(limit: 5) &#123;</span><br><span class="line">          title</span><br><span class="line">          createdAt</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  `</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">响应：</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">  &quot;data&quot;: &#123;</span><br><span class="line">    &quot;user&quot;: &#123;</span><br><span class="line">      &quot;name&quot;: &quot;Alice&quot;,</span><br><span class="line">      &quot;email&quot;: &quot;alice@example.com&quot;,</span><br><span class="line">      &quot;posts&quot;: [</span><br><span class="line">        &#123;&quot;title&quot;: &quot;First Post&quot;, &quot;createdAt&quot;: &quot;2023-10-25&quot;&#125;,</span><br><span class="line">        ...</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+</ul>
+
 <div class="article-footer fs14"></div>
 </article>
-
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"></div><div class="item" id="next"><div class="note">接下来阅读</div><a href="/wiki/WebSec/SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80.html">SQL注入基础</a></div></section></div>
 
 
 
@@ -185,7 +210,14 @@ show_runtime();
 <center>
 <span class="totalcount"> 共发表 3 篇 Blog · </span> <span class="post-count"> 总计 4.2k 字 </span></div></footer>
 <div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
-</aside><div class='float-panel blur'>
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">本文目录</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E%E6%96%87%E4%BB%B6%E7%9B%AE%E5%BD%95"><span class="toc-text">基于文件目录</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E4%BA%8E%E8%B7%AF%E7%94%B1"><span class="toc-text">基于路由</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B7%B7%E5%90%88%E6%A8%A1%E5%BC%8F"><span class="toc-text">混合模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%99%9A%E6%8B%9F%E8%B7%AF%E5%BE%84"><span class="toc-text">虚拟路径</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RESTful-API-%E8%B5%84%E6%BA%90"><span class="toc-text">RESTful API 资源</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GraphQL-%E5%8D%95%E4%B8%80%E7%AB%AF%E7%82%B9"><span class="toc-text">GraphQL 单一端点</span></a></li></ol></div><div class="widget-footer">
+
+<a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/></g></svg><span>回到顶部</span></a></div></widget>
+</div></aside><div class='float-panel blur'>
   <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
   </button>

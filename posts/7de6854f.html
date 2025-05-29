@@ -17,24 +17,30 @@
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
   <meta name="theme-color" content="#f9fafb">
   
-  <title>小王随笔：年华就该是温润、流动，但只能缓缓向前 - M3ng9e</title>
+  <title>利用HTTP请求格式绕过WAF技术解析 - M3ng9e</title>
 
   
-    <meta name="description" content="我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。 ——《蓝色大门》  Hi, Dear Meng. 现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。 站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐">
-<meta property="og:type" content="website">
-<meta property="og:title" content="年华就该是温润、流动，但只能缓缓向前">
-<meta property="og:url" content="https://m3ng9e.github.io/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html">
+    <meta name="description" content="记录从HTTP协议层面绕过WAF的技术，不断总结，活到老学到老~">
+<meta property="og:type" content="article">
+<meta property="og:title" content="利用HTTP请求格式绕过WAF技术解析">
+<meta property="og:url" content="https://m3ng9e.github.io/posts/7de6854f.html">
 <meta property="og:site_name" content="M3ng9e">
-<meta property="og:description" content="我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。 ——《蓝色大门》  Hi, Dear Meng. 现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。 站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐">
+<meta property="og:description" content="记录从HTTP协议层面绕过WAF的技术，不断总结，活到老学到老~">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2022-12-15T09:56:42.000Z">
-<meta property="article:modified_time" content="2025-03-26T09:09:15.188Z">
+<meta property="og:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529175739765.png">
+<meta property="og:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529175847534.png">
+<meta property="og:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529212316705.png">
+<meta property="article:published_time" content="2025-05-29T08:28:18.000Z">
+<meta property="article:modified_time" content="2025-05-29T13:31:59.653Z">
 <meta property="article:author" content="M3ng9e">
+<meta property="article:tag" content="WEB安全">
+<meta property="article:tag" content="WAF">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529175739765.png">
   
   
   
-  
+  <meta name="keywords" content="WEB安全,WAF">
 
   <!-- feed -->
   
@@ -52,23 +58,18 @@
 </head>
 <body>
 
+<div class="l_body s:aa content tech" id="start" layout="post" ><aside class="l_left"><div class="leftbar-container">
 
 
-<div class="l_body s:aa content tech" id="start" layout="page" ><aside class="l_left"><div class="leftbar-container">
-
-
-<header class="header"><div class="logo-wrap"><div class="icon"><img no-lazy class="icon" src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小红花.png" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></div><a class="title" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html"><div class="main" ff="title">小王随笔</div></a></div></header>
+<header class="header"><div class="logo-wrap"><a class="avatar" href="/about/"><div class="bg" style="opacity:0;background-image:url(https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/rainbow64@3x.webp);"></div><img no-lazy class="avatar" src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/慎平.jpg" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></a><a class="title" href="/"><div class="main" ff="title">M3ng9e</div><div class="sub normal cap">Stay gold,Pony boy!</div><div class="sub hover cap" style="opacity:0"> "我是一个偶尔会发疯的人呐。"</div></a></div></header>
 
 <div class="nav-area">
-<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="在 小王随笔 中搜索"></form><div id="search-result"></div><div class="search-no-result">没有找到内容！</div></div>
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" placeholder="站内搜索"></form><div id="search-result"></div><div class="search-no-result">没有找到内容！</div></div>
 
 
-<nav class="menu dis-select"><a class="nav-item" title="博客" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="wiki知识库" href="/wiki/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item active" title="小王日记" href="/notes/" style="color:#FA6400"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M20 12a8 8 0 1 1-16 0a8 8 0 0 1 16 0" opacity=".5"/><path fill="currentColor" d="M17.712 5.453c1.047-.193 2.006-.259 2.797-.152c.77.103 1.536.393 1.956 1.064c.446.714.312 1.542-.012 2.258c-.33.728-.918 1.499-1.672 2.268c-1.516 1.547-3.836 3.226-6.597 4.697c-2.763 1.472-5.495 2.484-7.694 2.92c-1.095.217-2.098.299-2.923.201c-.8-.095-1.6-.383-2.032-1.075c-.47-.752-.296-1.63.07-2.379c.375-.768 1.032-1.586 1.872-2.403L4 12.416c0 .219.083.71.168 1.146c.045.23.09.444.123.596c-.652.666-1.098 1.263-1.339 1.756c-.277.567-.208.825-.145.925c.072.116.305.305.937.38c.609.073 1.44.018 2.455-.183c2.02-.4 4.613-1.351 7.28-2.772c2.667-1.42 4.85-3.015 6.23-4.423c.694-.707 1.15-1.334 1.377-1.836c.233-.515.167-.75.107-.844c-.07-.112-.289-.294-.883-.374c-.542-.072-1.272-.041-2.163.112L16.87 5.656c.338-.101.658-.17.842-.203"/></svg></a><a class="nav-item" title="关于我" href="/about/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a></nav>
+<nav class="menu dis-select"><a class="nav-item active" title="博客" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item" title="wiki知识库" href="/wiki/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="小王日记" href="/notes/" style="color:#FA6400"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M20 12a8 8 0 1 1-16 0a8 8 0 0 1 16 0" opacity=".5"/><path fill="currentColor" d="M17.712 5.453c1.047-.193 2.006-.259 2.797-.152c.77.103 1.536.393 1.956 1.064c.446.714.312 1.542-.012 2.258c-.33.728-.918 1.499-1.672 2.268c-1.516 1.547-3.836 3.226-6.597 4.697c-2.763 1.472-5.495 2.484-7.694 2.92c-1.095.217-2.098.299-2.923.201c-.8-.095-1.6-.383-2.032-1.075c-.47-.752-.296-1.63.07-2.379c.375-.768 1.032-1.586 1.872-2.403L4 12.416c0 .219.083.71.168 1.146c.045.23.09.444.123.596c-.652.666-1.098 1.263-1.339 1.756c-.277.567-.208.825-.145.925c.072.116.305.305.937.38c.609.073 1.44.018 2.455-.183c2.02-.4 4.613-1.351 7.28-2.772c2.667-1.42 4.85-3.015 6.23-4.423c.694-.707 1.15-1.334 1.377-1.836c.233-.515.167-.75.107-.844c-.07-.112-.289-.294-.883-.374c-.542-.072-1.272-.041-2.163.112L16.87 5.656c.338-.101.658-.17.842-.203"/></svg></a><a class="nav-item" title="关于我" href="/about/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a></nav>
 </div>
 <div class="widgets">
-
-<widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">所思所念</span></div><div class="widget-body fs14"><a class="link active" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html#start"><span class="toc-text">年华就该是温润、流动，但只能缓缓向前</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a></div></widget>
-
 
 
 <widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">最近更新</span></div><div class="widget-body fs14"><a class="item title" href="/posts/7de6854f.html"><span class="title">利用HTTP请求格式绕过WAF技术解析</span></a><a class="item title" href="/posts/48181fae.html"><span class="title">stellar博客主题配置及踩坑记录</span></a><a class="item title" href="/posts/dde44b6c.html"><span class="title">Web URL 路由解析机制详解</span></a></div></widget>
@@ -83,76 +84,82 @@
 <div class="article banner top">
   <div class="content">
     <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a>
-<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/wiki">文档</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/notes/%E7%BC%93%E7%BC%93%E5%90%91%E5%89%8D.html">小王随笔</a></div>
-<div class="flex-row" id="post-meta"><span class="text created">更新于：<time datetime="2025-03-26T09:09:15.188Z">2025-03-26</time></span></div></div></div>
+<span class="sep"></span><a class="cap breadcrumb" href="/">文章</a><span class="sep"></span><a class="cap breadcrumb-link" href="/categories/WEB%E5%AE%89%E5%85%A8/">WEB安全</a> <span class="sep"></span> <a class="cap breadcrumb-link" href="/categories/WEB%E5%AE%89%E5%85%A8/WAF%E7%BB%95%E8%BF%87/">WAF绕过</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">发布于：<time datetime="2025-05-29T08:28:18.000Z">2025-05-29</time></span><span class="sep updated"></span><span class="text updated">更新于：<time datetime="2025-05-29T13:31:59.653Z">2025-05-29</time></span></div></div></div>
     
     <div class="bottom only-title">
       
       <div class="text-area">
-        <h1 class="text title"><span>年华就该是温润、流动，但只能缓缓向前</span></h1>
+        <h1 class="text title"><span>利用HTTP请求格式绕过WAF技术解析</span></h1>
         
       </div>
     </div>
     
   </div>
-  </div><article class="md-text content"><blockquote>
-<p>我似乎看到多年以后，你站在一扇蓝色大门前，你笑着，我跑向你。三年、五年以后，甚至更久更久以后，我们会变成什么样的大人呢？我闭着眼睛也看不见自己，但是，我却可以看见你。</p>
-<p>——《蓝色大门》</p>
-</blockquote>
-<p><strong>Hi, Dear Meng.</strong></p>
-<p>现在是北京时间的凌晨三点，我夜不能寐，想与你聊聊心中所感，便起床写了这封信。</p>
-<p>站在快二十三岁的节点回望，十八岁后的五年里，日子缓慢，简单散漫自由的校园生活，充斥着过一日是一日的快乐。这些日子里你成长了些许，也经历了不少，走过了一个个的岔路口，反复向自己问询人生的答案。</p>
-<p>我究竟向往的是什么？人生的意义是什么？努力真的有用吗？我会不会很差劲很笨？为什么我总是坚持不下来？真的一辈子要做这一行嘛？</p>
-<p>在很多个躺在床上睡不着的夜晚里，你有很多问题找不到答案。</p>
-<p>你有很多想法，一些灵机一动的创业 idea。有很多想去的地方，冰岛、大理、威海、海南等，王阳明先生的龙场，鲁迅先生的三味书屋等等。有很多想看的书，想看的电影和剧、想发展艺术、想去国外留学。</p>
-<p>你对未来的生活充满了很多幻想，但生活充满了不定性，对父母日渐苍老的恐慌，对工作或读研的焦虑，夹杂着一事无成的迷茫。</p>
-<p>也好在你还有很多无条件永远支持你的人，家人，老师，好朋友。好在你经常自省，如果用《夏日重现》里的话说就是俯瞰自己。也好在你才二十二岁，还年轻，有激情。</p>
-<p>要知道我们从来都不是为了谁而活着，所以请尽情地、努力地、真实地去做那个你心目中的自己。有挫折是为了让你变强，有冷眼嘲笑也没什么大不了，静下心来去做自己的事情好了。</p>
-<p>就像你喜欢的朋友圈仅自己可见的那句话说的：</p>
-<blockquote>
-<p>无人问津也好，技不如人也罢，你要试着安静下来，去做自己该做的事，而不是让内心烦躁、焦虑，毁掉你本就不多的热情和定力。</p>
-</blockquote>
-<p>你最近还偶尔熬夜刷了一些剧，《Breaking Bad》、《Better Call Saul》等。老白和吉米的故事很吸引你，有时候也会想：</p>
-<p>如果知道自己的人生只剩下那么两年，你会做什么？生命真的很长吗？</p>
-<p>我们日复一日地度过自己的人生，有时争分夺秒，有时却又大手挥霍。我们又有多少时间呢？</p>
-<p>认真地想了这个问题，于是你算了算。</p>
+  </div><article class="md-text content"><p>记录从HTTP协议层面绕过WAF的技术，不断总结，活到老学到老~</p>
+<span id="more"></span>
+
+
+
+<h2 id="POST请求中的Content-Type差异"><a href="#POST请求中的Content-Type差异" class="headerlink" title="POST请求中的Content-Type差异"></a>POST请求中的Content-Type差异</h2><h3 id="application-x-www-form-urlencoded"><a href="#application-x-www-form-urlencoded" class="headerlink" title="application&#x2F;x-www-form-urlencoded"></a>application&#x2F;x-www-form-urlencoded</h3><p>默认的表单上传格式。</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">username</span>=admin&amp;password=<span class="number">123456</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="multipart-form-data"><a href="#multipart-form-data" class="headerlink" title="multipart&#x2F;form-data"></a>multipart&#x2F;form-data</h3><p>在文件上传时，由于文件中可能有各种各样的字符，与常见POST请求参数中的&amp;&#x3D;引起冲突，这时引出了一种特有的上传的POST Content-Type格式——multipart&#x2F;form-data。</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">POST</span> <span class="string">/upload</span> <span class="meta">HTTP/1.1</span></span><br><span class="line"><span class="attribute">Content-Type</span><span class="punctuation">: </span>multipart/form-data; boundary=----WebKitBoundary</span><br><span class="line"></span><br><span class="line"><span class="language-php">------WebKitBoundary</span></span><br><span class="line"><span class="language-php">Content-Disposition: form-data; name=<span class="string">&quot;username&quot;</span></span></span><br><span class="line"><span class="language-php"></span></span><br><span class="line"><span class="language-php">admin</span></span><br><span class="line"><span class="language-php">------WebKitBoundary</span></span><br><span class="line"><span class="language-php">Content-Disposition: form-data; name=<span class="string">&quot;file&quot;</span>; filename=<span class="string">&quot;shell.php&quot;</span></span></span><br><span class="line"><span class="language-php">Content-Type: application/x-php</span></span><br><span class="line"><span class="language-php"></span></span><br><span class="line"><span class="language-php"><span class="meta">&lt;?php</span> <span class="title function_ invoke__">system</span>(<span class="variable">$_GET</span>[<span class="string">&#x27;cmd&#x27;</span>]); <span class="meta">?&gt;</span></span></span><br><span class="line"><span class="language-php">------WebKitBoundary--</span></span><br></pre></td></tr></table></figure>
+
+<p>Content-Type: multipart&#x2F;form-data; boundary&#x3D;—-WebKitBoundary。这里的分界线为—-WebKitBoundary，作用是将上传内容和POST参数数据互不干扰。</p>
+<p>两个分界线之间的内容，有些是POST 数据，有些是上传文件，<strong>区分主要在于是否有“filename&#x3D;”字样。</strong></p>
+<p>如何将标准POST请求转换为multipart&#x2F;form-data格式提交呢？Burp的右键方便的提供这个功能，点击Change boby encoding，就可以实现了。</p>
+<img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529175739765.png" alt="image-20250529175739765" style="zoom:67%;" />
+
+<p>转换后如图。</p>
+<img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529175847534.png" alt="image-20250529175847534" style="zoom:67%;" />
+
+<p>利用其绕过WAF解析：</p>
+<ol>
+<li><p>部分 WAF 默认优先检测 <code>application/x-www-form-urlencoded</code> 或 <code>JSON</code> 请求，但对 <code>multipart/form-data</code> 的解析不完善（如未正确提取字段名和值）。</p>
+</li>
+<li><p>利用 <code>Content-Disposition</code> 的额外属性（如 <code>filename=</code>）干扰 WAF 的正则匹配。</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">--boundary</span></span><br><span class="line">Content-Disposition: form-data; <span class="type">name</span>=&quot;user&quot;; filename=&quot;a.txt&quot;</span><br><span class="line">Content-<span class="keyword">Type</span>: <span class="type">text</span>/plain</span><br><span class="line"></span><br><span class="line"><span class="string">&#x27; OR 1=1 --</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">这里 filename 可能误导 WAF 认为这是一个文件字段而非SQL 注入。</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<h2 id="分块传输"><a href="#分块传输" class="headerlink" title="分块传输"></a>分块传输</h2><p><strong>Transfer-Encoding: chunked</strong> 是 HTTP&#x2F;1.1 中定义的一种 <strong>数据传输机制</strong>，允许服务端&#x2F;客户端分段（Chunk）发送数据，<strong>不需要预先知道整体内容的长度</strong>（即无需设置 <code>Content-Length</code>）。</p>
+<p>看视频时，往往是边观看边下载的，这时候HTTP响应就是用的分块传输的形式，先发送一部分数据到服务器，然后再发送后续的内容，这种形式被称为chunked。</p>
+<p>特点：</p>
 <ul>
-<li>假设活到 60 岁，你剩下 37 年，13505 天。</li>
-<li>如果每天当作一局游戏的话，你只剩下一万多局。</li>
-<li>每天睡眠、吃饭、洗澡花费 10 小时，你真正拥有属于自己的时间只有 <strong>7877 天</strong>。</li>
+<li>HTTP2.0提供了比分块传输更有效的数据流机制，并禁止使用标头。（HTTP2.0不支持使用HTTP标头的分块传输）</li>
+<li>chunked分块可以一次性发送，也可以切分多次后发送</li>
+<li>增加了头部 Transfer-Encoding: chunked，另外16进制声明长度。</li>
 </ul>
-<p>你有很多目标想在 <strong>28 岁</strong>之前实现的，1825 天的时间，计算下来，时间真的好少。成为专家需要一万个小时，每天学习 10 小时，至少得坚持三年。坚持，简单两个字，却是难以坚持。</p>
-<p>但时间本就不应该被这么精打细算吧？这样活得不自由、也不快乐。</p>
-<p>谈到太远大、难以实现的目标，总是让人心生惧怕，不想面对。</p>
-<p>在学校里跑步的时候，你信誓旦旦地和舍友说自己今天要跑 <strong>5 公里不停</strong>，可是一想到五公里要在操场上跑 12.5 圈，你便犹豫了。</p>
-<p>“天啊，持续跑 5 圈已经很累了好吗！”，于是那天你没去。</p>
-<p>但你是一个喜欢和自己较劲的人。第二天，你看到 <strong>跑 5 公里需要 35 分钟左右</strong>，你很质疑。于是你决定试试。</p>
-<p>你看着手表，一公里、二公里、三点八公里、四点六公里，心里想着再多跑两圈就好了。最终你一身汗跑完了 <strong>5.03KM</strong>，花了 <strong>32 分 13 秒</strong>。中途有三四次想放弃，但你没有停下来。</p>
-<p>其实你都明白，很多目标和跑步一样，做好规划，知行合一，一步一个脚印，一定会好的。</p>
-<blockquote>
-<p>如阳明先生所说：“吾心自有光明月，千古团圆永无缺。”</p>
-<p>知是行之始，行是知之成。</p>
-</blockquote>
-<p>做到心中无愧，知行合一就很好了。</p>
-<p>当然，对于未来也不必太过焦虑。</p>
-<p>仔细想想，最初的梦想和初衷都还在，距离它，是不是更近了一些呢？</p>
-<p>好像是的。</p>
-<p>你很喜欢 UP 主 <strong>小鹿</strong>采访乌镇和黄磊的最新一期结尾里看着被风吹拂的湖面说的那句话：</p>
-<blockquote>
-<p>年华就该是温润、流动，但只能缓缓向前。</p>
-</blockquote>
-<p><strong>你想起了四年前和好友去杭州游玩时看到的西湖湖面。想必在没有见面的日子里，大家也都在温润地、流动地、缓缓向前。</strong></p>
-<p>最后送你一句话吧，来自《绝命毒师》剧场版的结尾，小粉和 Jane 的对话：</p>
-<blockquote>
-<p>“I’ve gone where the universe takes me my whole life, It’s better to make those decisions for yourself.”</p>
-<p>“在浩瀚的宇宙中随波逐流，不如追寻你的心之所向。</p>
-</blockquote>
-<div style="text-align: right;">
-希望你越来越好的自己
-<div style="text-align: right;">
-2022.12.15
-<div class="article-footer fs14"></div>
+<p>可以使用这个插件构造分块传输：</p>
+<p><a target="_blank" rel="noopener" href="http://github.com/c0ny1/chunked-coding-converter">http://github.com/c0ny1/chunked-coding-converter</a></p>
+<p><strong>思考</strong>：如果有一个注入可以分块绕过，但是需要拿数据手工很麻烦，怎么办？SQLMAP怎么使用分块传输啊？</p>
+<p>答：可以使用插件自带的代理功能。</p>
+<p>可参考文章：<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s/pM1ULCqNdQwSB7hcltrbtw">https://mp.weixin.qq.com/s/pM1ULCqNdQwSB7hcltrbtw</a></p>
+<img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/image-20250529212316705.png" alt="image-20250529212316705" style="zoom: 67%;" />
+
+<div class="article-footer fs14">
+    <section id="license">
+      <div class="header"><span>许可协议</span></div>
+      <div class="body"><p>本文采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">署名-非商业性使用-相同方式共享 4.0 国际</a> 许可协议，转载请注明出处。</p>
+</div>
+    </section>
+    
+    <section id="share">
+      <div class="header"><span>分享文章</span></div>
+      <div class="body">
+        <div class="link"><input class="copy-area" readonly="true" id="copy-link" value="https://m3ng9e.github.io/posts/7de6854f.html" /></div>
+        <div class="social-wrap dis-select"><a class="social share-item wechat" onclick="util.toggle(&quot;qrcode-wechat&quot;)"><img class="lazy"  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/b32ef3da1162a.svg" /></a><a class="social share-item weibo" target="_blank" rel="external nofollow noopener noreferrer" href="https://service.weibo.com/share/share.php?url=https://m3ng9e.github.io/posts/7de6854f.html&title=利用HTTP请求格式绕过WAF技术解析 - M3ng9e&summary=记录从HTTP协议层面绕过WAF的技术，不断总结，活到老学到老~"><img class="lazy"  src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/social/80c07e4dbb303.svg" /></a></div>
+        
+        <div class="qrcode" id="qrcode-wechat" style="opacity:0;height:0">
+          <img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=https://m3ng9e.github.io/posts/7de6854f.html"/>
+        </div>
+        
+      </div>
+    </section>
+    </div>
 </article>
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"></div><div class="item" id="next"><div class="note">较早文章</div><a href="/posts/dde44b6c.html">Web URL 路由解析机制详解</a></div></section></div>
+
 
 
 
@@ -185,7 +192,14 @@ show_runtime();
 <center>
 <span class="totalcount"> 共发表 3 篇 Blog · </span> <span class="post-count"> 总计 4.2k 字 </span></div></footer>
 <div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
-</aside><div class='float-panel blur'>
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">本文目录</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#POST%E8%AF%B7%E6%B1%82%E4%B8%AD%E7%9A%84Content-Type%E5%B7%AE%E5%BC%82"><span class="toc-text">POST请求中的Content-Type差异</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#application-x-www-form-urlencoded"><span class="toc-text">application&#x2F;x-www-form-urlencoded</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#multipart-form-data"><span class="toc-text">multipart&#x2F;form-data</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%86%E5%9D%97%E4%BC%A0%E8%BE%93"><span class="toc-text">分块传输</span></a></li></ol></div><div class="widget-footer">
+
+<a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/></g></svg><span>回到顶部</span></a></div></widget>
+</div></aside><div class='float-panel blur'>
   <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
   </button>
