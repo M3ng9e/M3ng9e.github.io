@@ -1,0 +1,1049 @@
+
+<!DOCTYPE html><html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="hexo-theme" content="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.29.1" theme-name="Stellar" theme-version="1.29.1">
+  
+  <meta name="generator" content="Hexo 7.3.0">
+  <meta http-equiv='x-dns-prefetch-control' content='on' />
+  
+  <meta name="renderer" content="webkit">
+  <meta name="force-rendering" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+  <meta name="HandheldFriendly" content="True" >
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000">
+  <meta name="theme-color" content="#f9fafb">
+  
+  <title>WebSec：域名信息收集原理探究 - M3ng9e</title>
+
+  
+    <meta name="description" content="证书透明度收集子域名原理可以把互联网上的网站（比如 baidu.com）想象成一个个商店。为了让顾客安全地访问，这些商店需要一个“安全营业执照”——这就是我们说的 SSL&#x2F;TLS 证书。 为了防止有人偷偷开个假店（比如 fake-baidu.com）国际上规定：所有正规颁发的“营业执照”（证书），都必须登记在一个或多个公开的登记本里，谁都可以查！ 这个“公开的登记本”，就是 证书透明度日">
+<meta property="og:type" content="website">
+<meta property="og:title" content="域名信息收集原理探究">
+<meta property="og:url" content="https://m3ng9e.github.io/wiki/WebSec/%E5%9F%9F%E5%90%8D%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86%E5%8E%9F%E7%90%86%E6%8E%A2%E7%A9%B6.html">
+<meta property="og:site_name" content="M3ng9e">
+<meta property="og:description" content="证书透明度收集子域名原理可以把互联网上的网站（比如 baidu.com）想象成一个个商店。为了让顾客安全地访问，这些商店需要一个“安全营业执照”——这就是我们说的 SSL&#x2F;TLS 证书。 为了防止有人偷偷开个假店（比如 fake-baidu.com）国际上规定：所有正规颁发的“营业执照”（证书），都必须登记在一个或多个公开的登记本里，谁都可以查！ 这个“公开的登记本”，就是 证书透明度日">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/1755401215436-80afab2a-a682-4c9b-ad6a-59c09d851fe5.png">
+<meta property="article:published_time" content="2025-08-18T11:59:08.275Z">
+<meta property="article:modified_time" content="2025-08-18T11:59:08.275Z">
+<meta property="article:author" content="M3ng9e">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/1755401215436-80afab2a-a682-4c9b-ad6a-59c09d851fe5.png">
+  
+  
+  
+  
+
+  <!-- feed -->
+  
+
+  <link rel="stylesheet" href="/css/main.css?v=1.29.1">
+
+
+  
+    <link rel="shortcut icon" href="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小太阳.png">
+  
+
+  
+
+  <link rel="stylesheet" href="/custom/css/self.css"><link rel="apple-touch-icon" sizes="180x180" href="/assets/xaoxuu/favicon/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/assets/xaoxuu/favicon/favicon-32x32.png"><link rel="icon" type="image/png" sizes="16x16" href="/assets/xaoxuu/favicon/favicon-16x16.png"><link rel="manifest" href="/assets/xaoxuu/favicon/site.webmanifest"><link rel="shortcut icon" href="/assets/xaoxuu/favicon/favicon.ico"><meta name="theme-color" content="#f8f8f8"><link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-screen-webfont/1.7.0/style.min.css" media="all" />
+</head>
+<body>
+
+
+
+<div class="l_body s:aa content tech" id="start" layout="page" ><aside class="l_left"><div class="leftbar-container">
+
+
+<header class="header"><div class="logo-wrap"><div class="icon"><img no-lazy class="icon" src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/小太阳.png" onerror="javascript:this.classList.add('error');this.src='https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/image/2659360.svg';"></div><a class="title" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html"><div class="main" ff="title">WebSec</div><div class="sub normal cap">Web安全</div><div class="sub hover cap" style="opacity:0"> 没有绝对安全的系统</div></a></div></header>
+
+<div class="nav-area">
+<div class="search-wrapper" id="search-wrapper"><form class="search-form"><a class="search-button" onclick="document.getElementById(&quot;search-input&quot;).focus();"><svg t="1705074644177" viewBox="0 0 1025 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1560" width="200" height="200"><path d="M1008.839137 935.96571L792.364903 719.491476a56.783488 56.783488 0 0 0-80.152866 0 358.53545 358.53545 0 1 1 100.857314-335.166073 362.840335 362.840335 0 0 1-3.689902 170.145468 51.248635 51.248635 0 1 0 99.217358 26.444296 462.057693 462.057693 0 1 0-158.255785 242.303546l185.930047 185.725053a51.248635 51.248635 0 0 0 72.568068 0 51.248635 51.248635 0 0 0 0-72.978056z" p-id="1561"></path><path d="M616.479587 615.969233a50.428657 50.428657 0 0 0-61.498362-5.534852 174.655348 174.655348 0 0 1-177.525271 3.484907 49.403684 49.403684 0 0 0-58.833433 6.76482l-3.074918 2.869923a49.403684 49.403684 0 0 0 8.609771 78.10292 277.767601 277.767601 0 0 0 286.992355-5.739847 49.403684 49.403684 0 0 0 8.404776-76.667958z" p-id="1562"></path></svg></a><input type="text" class="search-input" id="search-input" data-filter="/wiki/WebSec/" placeholder="在 WebSec中搜索..."></form><div id="search-result"></div><div class="search-no-result">没有找到内容！</div></div>
+
+
+<nav class="menu dis-select"><a class="nav-item" title="博客" href="/" style="color:#1BCDFC"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5.879 2.879C5 3.757 5 5.172 5 8v8c0 2.828 0 4.243.879 5.121C6.757 22 8.172 22 11 22h2c2.828 0 4.243 0 5.121-.879C19 20.243 19 18.828 19 16V8c0-2.828 0-4.243-.879-5.121C17.243 2 15.828 2 13 2h-2c-2.828 0-4.243 0-5.121.879M8.25 17a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1-.75-.75M9 12.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5zM8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9" clip-rule="evenodd"/><path fill="currentColor" d="M5.235 4.058C5 4.941 5 6.177 5 8v8c0 1.823 0 3.058.235 3.942L5 19.924c-.975-.096-1.631-.313-2.121-.803C2 18.243 2 16.828 2 14v-4c0-2.829 0-4.243.879-5.121c.49-.49 1.146-.707 2.121-.803zm13.53 15.884C19 19.058 19 17.822 19 16V8c0-1.823 0-3.059-.235-3.942l.235.018c.975.096 1.631.313 2.121.803C22 5.757 22 7.17 22 9.999v4c0 2.83 0 4.243-.879 5.122c-.49.49-1.146.707-2.121.803z" opacity=".5"/></svg></a><a class="nav-item active" title="wiki知识库" href="/wiki/" style="color:#3DC550"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M14.25 4.48v3.057c0 .111 0 .27.02.406a.936.936 0 0 0 .445.683a.96.96 0 0 0 .783.072c.13-.04.272-.108.378-.159L17 8.005l1.124.534c.106.05.248.119.378.16a.958.958 0 0 0 .783-.073a.936.936 0 0 0 .444-.683c.021-.136.021-.295.021-.406V3.031c.113-.005.224-.01.332-.013C21.154 2.98 22 3.86 22 4.933v11.21c0 1.112-.906 2.01-2.015 2.08c-.97.06-2.108.179-2.985.41c-1.082.286-1.99 1.068-3.373 1.436c-.626.167-1.324.257-1.627.323V5.174c.32-.079 1.382-.203 1.674-.371c.184-.107.377-.216.576-.323m5.478 8.338a.75.75 0 0 1-.546.91l-4 1a.75.75 0 0 1-.364-1.456l4-1a.75.75 0 0 1 .91.546" clip-rule="evenodd"/><path fill="currentColor" d="M18.25 3.151c-.62.073-1.23.18-1.75.336a8.2 8.2 0 0 0-.75.27v3.182l.75-.356l.008-.005a1.13 1.13 0 0 1 .492-.13c.047 0 .094.004.138.01c.175.029.315.1.354.12l.009.005l.749.356V3.647z"/><path fill="currentColor" d="M12 5.214c-.334-.064-1.057-.161-1.718-.339C8.938 4.515 8.05 3.765 7 3.487c-.887-.234-2.041-.352-3.018-.412C2.886 3.007 2 3.9 2 4.998v11.146c0 1.11.906 2.01 2.015 2.079c.97.06 2.108.179 2.985.41c.486.129 1.216.431 1.873.726c1.005.451 2.052.797 3.127 1.034z" opacity=".5"/><path fill="currentColor" d="M4.273 12.818a.75.75 0 0 1 .91-.545l4 1a.75.75 0 1 1-.365 1.455l-4-1a.75.75 0 0 1-.545-.91m.909-4.545a.75.75 0 1 0-.364 1.455l4 1a.75.75 0 0 0 .364-1.455z"/></svg></a><a class="nav-item" title="小王日记" href="/notes/" style="color:#FA6400"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M20 12a8 8 0 1 1-16 0a8 8 0 0 1 16 0" opacity=".5"/><path fill="currentColor" d="M17.712 5.453c1.047-.193 2.006-.259 2.797-.152c.77.103 1.536.393 1.956 1.064c.446.714.312 1.542-.012 2.258c-.33.728-.918 1.499-1.672 2.268c-1.516 1.547-3.836 3.226-6.597 4.697c-2.763 1.472-5.495 2.484-7.694 2.92c-1.095.217-2.098.299-2.923.201c-.8-.095-1.6-.383-2.032-1.075c-.47-.752-.296-1.63.07-2.379c.375-.768 1.032-1.586 1.872-2.403L4 12.416c0 .219.083.71.168 1.146c.045.23.09.444.123.596c-.652.666-1.098 1.263-1.339 1.756c-.277.567-.208.825-.145.925c.072.116.305.305.937.38c.609.073 1.44.018 2.455-.183c2.02-.4 4.613-1.351 7.28-2.772c2.667-1.42 4.85-3.015 6.23-4.423c.694-.707 1.15-1.334 1.377-1.836c.233-.515.167-.75.107-.844c-.07-.112-.289-.294-.883-.374c-.542-.072-1.272-.041-2.163.112L16.87 5.656c.338-.101.658-.17.842-.203"/></svg></a><a class="nav-item" title="关于我" href="/about/" style="color:#F44336"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="m13.629 20.472l-.542.916c-.483.816-1.69.816-2.174 0l-.542-.916c-.42-.71-.63-1.066-.968-1.262c-.338-.197-.763-.204-1.613-.219c-1.256-.021-2.043-.098-2.703-.372a5 5 0 0 1-2.706-2.706C2 14.995 2 13.83 2 11.5v-1c0-3.273 0-4.91.737-6.112a5 5 0 0 1 1.65-1.651C5.59 2 7.228 2 10.5 2h3c3.273 0 4.91 0 6.113.737a5 5 0 0 1 1.65 1.65C22 5.59 22 7.228 22 10.5v1c0 2.33 0 3.495-.38 4.413a5 5 0 0 1-2.707 2.706c-.66.274-1.447.35-2.703.372c-.85.015-1.275.022-1.613.219c-.338.196-.548.551-.968 1.262" opacity=".5"/><path fill="currentColor" d="M10.99 14.308c-1.327-.978-3.49-2.84-3.49-4.593c0-2.677 2.475-3.677 4.5-1.609c2.025-2.068 4.5-1.068 4.5 1.609c0 1.752-2.163 3.615-3.49 4.593c-.454.335-.681.502-1.01.502c-.329 0-.556-.167-1.01-.502"/></svg></a></nav>
+</div>
+<div class="widgets">
+
+<widget class="widget-wrapper post-list"><div class="widget-header dis-select"><span class="name">零碎的基础知识</span></div><div class="widget-body fs14"><a class="link" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html#start"><span class="toc-text">Web URL 路由解析机制详解</span></a></div><div class="widget-header dis-select"><span class="name">服务器端漏洞</span></div><div class="widget-body fs14"><a class="link active" href="/wiki/WebSec/%E5%9F%9F%E5%90%8D%E4%BF%A1%E6%81%AF%E6%94%B6%E9%9B%86%E5%8E%9F%E7%90%86%E6%8E%A2%E7%A9%B6.html"><span class="toc-text">域名信息收集原理探究</span><svg class="active-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="currentColor" d="M21 11.098v4.993c0 3.096 0 4.645-.734 5.321c-.35.323-.792.526-1.263.58c-.987.113-2.14-.907-4.445-2.946c-1.02-.901-1.529-1.352-2.118-1.47a2.225 2.225 0 0 0-.88 0c-.59.118-1.099.569-2.118 1.47c-2.305 2.039-3.458 3.059-4.445 2.945a2.238 2.238 0 0 1-1.263-.579C3 20.736 3 19.188 3 16.091v-4.994C3 6.81 3 4.666 4.318 3.333C5.636 2 7.758 2 12 2c4.243 0 6.364 0 7.682 1.332C21 4.665 21 6.81 21 11.098" opacity=".5"/><path fill="currentColor" d="M9 5.25a.75.75 0 0 0 0 1.5h6a.75.75 0 0 0 0-1.5z"/></svg></a><a class="link" href="/wiki/WebSec/SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80.html"><span class="toc-text">SQL注入基础</span></a><a class="link" href="/wiki/WebSec/API%E6%B5%8B%E8%AF%95.html"><span class="toc-text">API测试</span></a></div></widget>
+
+<widget class="widget-wrapper post-card"><div class="widget-header dis-select"><span class="name">更多：知识库</span></div><div class="widget-body"><a class="item wiki" href="/wiki/CTF/CTFshow-web%E5%85%A5%E9%97%A81000%E9%A2%98.html"><span class="title">CTF</span><span class="excerpt">Re:从0开始的CTF修炼之路</span></a></div></widget>
+</div>
+
+</div></aside><div class="l_main" id="main">
+
+
+
+
+
+<div class="article banner top">
+  <div class="content">
+    <div class="top bread-nav footnote"><div class="left"><div class="flex-row" id="breadcrumb"><a class="cap breadcrumb" href="/">主页</a>
+<span class="sep"></span><a class="cap breadcrumb" id="menu" href="/wiki">文档</a><span class="sep"></span><a class="cap breadcrumb" id="proj" href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html">WebSec</a></div>
+<div class="flex-row" id="post-meta"><span class="text created">更新于：<time datetime="2025-08-18T11:59:08.275Z">2025-08-18</time></span></div></div></div>
+    
+    <div class="bottom only-title">
+      
+      <div class="text-area">
+        <h1 class="text title"><span>域名信息收集原理探究</span></h1>
+        
+      </div>
+    </div>
+    
+  </div>
+  </div><article class="md-text content"><h2 id="证书透明度收集子域名"><a href="#证书透明度收集子域名" class="headerlink" title="证书透明度收集子域名"></a>证书透明度收集子域名</h2><h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>可以把互联网上的网站（比如 <code>baidu.com</code>）想象成一个个商店。为了让顾客安全地访问，这些商店需要一个“安全营业执照”——这就是我们说的 <strong>SSL&#x2F;TLS 证书</strong>。</p>
+<p>为了防止有人偷偷开个假店（比如 <code>fake-baidu.com</code>）国际上规定：所有正规颁发的“营业执照”（证书），都必须登记在一个或多个<strong>公开的登记本</strong>里，谁都可以查！</p>
+<p>这个“公开的登记本”，就是 <strong>证书透明度日志（Certificate Transparency Log，简称 CT Log）</strong>。</p>
+<p>每当百度给 <code>map.baidu.com</code> 这个地图服务申请一个“安全执照”时，就必须把这个证书写进公开的“登记本”里。证书透明度就像是一个“证书公开花名册”，我们通过翻这个花名册，就能知道一个公司（网站）底下有多少个“小部门”（子域），哪怕它们平时藏得很深。</p>
+<h3 id="思考"><a href="#思考" class="headerlink" title="思考"></a>思考</h3><details class="lake-collapse"><summary id="u37002ae8"><span class="ne-text">什么很多加了SSL的域名在crt.sh上查不到呢？企业是如何进行操作的？</span></summary><p id="u9090f498" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text">使用通配符、公共 CA 签发但禁用 CTlog（</span><span class="ne-text" style="color: rgb(44, 44, 54)">如DigiCert、Sectigo提供“私有证书”服务</span><span class="ne-text">)、私有证书。</span></p><p id="u2924aff8" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"></p><p id="u16e5899d" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">企业通常会根据安全策略和业务需求，采取以下做法：</span></p><p id="u6c3b6e0a" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(44, 44, 54)">操作 说明</span></strong></p><p id="ueeecf5b2" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 使用私有CA</span></p><p id="ue5058efd" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">建立内部PKI体系，为内部系统签发证书，完全不依赖公共CT日志。</span></p><p id="u3ac7dade" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 使用云服务商托管证书</span></p><p id="ud8562d97" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">如阿里云SSL证书服务、AWS ACM、Google Cloud CAS，这些证书自动管理且不公开。</span></p><p id="u8e27cf78" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 选择“私有证书”选项</span></p><p id="ue6fe4b58" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">向DigiCert等CA申请时，选择不公开记录到CT日志。</span></p><p id="ueb055616" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 证书生命周期自动化</span></p><p id="u46fa8e02" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">使用ACME协议（如Let's Encrypt）自动签发，但Let's Encrypt证书会进入CT日志，因此不适合敏感域名。</span></p><p id="ued39bfb6" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 限制证书暴露</span></p><p id="u2142874e" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">敏感系统（如后台管理、API接口）使用内部DNS和私有证书，避免暴露在公网和crt.sh上。</span></p></details>
+
+<details class="lake-collapse"><summary id="u709b2cfe"><span class="ne-text">什么是私有证书？</span></summary><p id="u472755d5" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">私有证书在“所有信任其根CA（根证书）的设备或系统”中生效，无论这些设备位于内网还是公网。</span></strong></p><p id="u6cf5cdb9" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)"></span></strong></p><p id="u13403100" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">私有证书能否被信任，取决于：</span></p><p id="u3c5c986b" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">客户端（浏览器、App、服务器）是否安装并信任了该私有CA的根证书。</span></strong></p><h4 id="tTnHH" style="font-size: 16px; line-height: 24px; margin: 10px 0 5px 0"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 能成功访问的场景：</span></h4><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="ub28f5241" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">企业员工的电脑通过MDM（如飞书、钉钉）安装了企业根证书</span></li><li id="u61927b52" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">设备访问部署在公网的</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">https://api.company.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（使用私有证书）</span></li><li id="u96660afb" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">因为设备信任根CA，所以连接显示“安全”</span></li></ul><h4 id="M6L7X" style="font-size: 16px; line-height: 24px; margin: 10px 0 5px 0"><span class="ne-text" style="color: rgb(44, 44, 54)">❌</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 无法访问的场景：</span></h4><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="u731eeba6" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">普通用户用个人电脑访问同一个</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">https://api.company.com</span></code></li><li id="uc2b354dd" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">因为其设备未安装企业根证书，浏览器会提示“您的连接不是私密连接”</span></li></ul></details>
+
+
+
+<h2 id="常规检查收集子域"><a href="#常规检查收集子域" class="headerlink" title="常规检查收集子域"></a>常规检查收集子域</h2><h3 id="域传送"><a href="#域传送" class="headerlink" title="域传送"></a>域传送</h3><h4 id="什么是域传送"><a href="#什么是域传送" class="headerlink" title="什么是域传送"></a>什么是域传送</h4><p>“域传送”通常指的是DNS区域传送（DNS Zone Transfer），这是一种在DNS服务器之间同步域名解析记录的机制，主要用于主从DNS服务器之间的数据复制。</p>
+<p><strong>目的</strong>：确保多个DNS服务器拥有相同的区域数据，提高可用性和容错能力。</p>
+<p><strong>简而言之，“域传送”就是把网站地址本从一个服务器复制到另一个服务器的过程，目的是备份和分担压力，但得管好权限，别让坏人偷看了。</strong></p>
+<h4 id="工作方式"><a href="#工作方式" class="headerlink" title="工作方式"></a>工作方式</h4><ul>
+<li><strong>AXFR（全量区域传送）</strong>：传输整个DNS区域的所有记录。通常在从服务器首次同步或区域数据发生重大变更时使用。</li>
+<li><strong>IXFR（增量区域传送）</strong>：只传输自上次同步以来发生变化的部分记录。相比AXFR更高效，节省带宽和资源。</li>
+</ul>
+<p>当 DNS 服务器<strong>未正确配置访问控制</strong>，允许<strong>任意外部用户</strong>发起 AXFR 请求并获取整个 DNS 区域文件时，就形成了 <strong>DNS域传送漏洞</strong>。</p>
+<h4 id="防御"><a href="#防御" class="headerlink" title="防御"></a>防御</h4><p>聪明的做法是： ✅ 只让你信任的朋友（指定服务器）来拿更新。<br>在相应的 zone、options 中添加 allow-transfer，对执行此操作的服务器进行限制。如：</p>
+<p>严格限制允许进行区域传送的客户端的 IP</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">allow-transfer ｛1.1.1.1; 2.2.2.2;｝</span><br></pre></td></tr></table></figure>
+
+<p>设置 TSIG key</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">allow-transfer ｛key &quot;dns1-slave1&quot;; key &quot;dns1-slave2&quot;;｝</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="站点配置文件-会暴露部分子域名"><a href="#站点配置文件-会暴露部分子域名" class="headerlink" title="站点配置文件(会暴露部分子域名)"></a>站点配置文件(会暴露部分子域名)</h3><ul>
+<li>跨域策略文件crossdomain.xml， sitemap文件。</li>
+<li>robots.txt</li>
+</ul>
+<h3 id="内容安全策略"><a href="#内容安全策略" class="headerlink" title="内容安全策略"></a>内容安全策略</h3><p>内容安全策略（CSP，Content Security Policy）是一种声明的安全机制，可以让网站运营者能够控制遵循CSP的用户代理（通常是浏览器）的行为。通过控制要启用哪些功能，以及从哪里下载内容，可以减少网站的攻击面。</p>
+<p><strong>简而言之吗，网站为了安全，写了个“禁止名单”或“允许名单”（CSP），但一不小心把自己用的子域名都写进去了。别人一看这个名单，就知道有哪些子域名了。</strong></p>
+<p>举个真实例子：</p>
+<p>你访问一个网页，它返回的 HTTP 头里有这么一段：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Content-Security-Policy: script-src &#x27;self&#x27; cdn.ygtech.com; img-src images.ygtech.com;</span><br></pre></td></tr></table></figure>
+
+<p>这句话意思是：</p>
+<ul>
+<li>脚本只能从自己和 <code>cdn.ygtech.com</code> 加载</li>
+<li>图片只能从 <code>images.ygtech.com</code> 加载</li>
+</ul>
+<p>👉 于是，你就发现了两个子域名：<code>cdn.ygtech.com</code> 和 <code>images.ygtech.com</code>！</p>
+<h4 id="实现方法"><a href="#实现方法" class="headerlink" title="实现方法"></a>实现方法</h4><ol>
+<li>手动抓包获取（HTTP header的Content-Security-Policy属性）</li>
+<li>Python的Requests获取</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">import requests</span><br><span class="line">res = requests.post(url=url, headers=headers, data=data, allow_redirects=False)</span><br><span class="line">if not res.headers[&#x27;Content-Security-Policy&#x27;]:</span><br><span class="line">print(&quot;There is no Content-Security-Policy in the header&quot;)</span><br><span class="line">else:</span><br><span class="line"># 处理主体代码</span><br></pre></td></tr></table></figure>
+
+
+
+
+
+<h2 id="DNS-枚举-查询收集子域名"><a href="#DNS-枚举-查询收集子域名" class="headerlink" title="DNS 枚举&amp;查询收集子域名"></a>DNS 枚举&amp;查询收集子域名</h2><p>常见记录类型及其用途：</p>
+<table>
+<thead>
+<tr>
+<th><strong>记录</strong></th>
+<th><strong>用途</strong></th>
+<th><strong>信息价值</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>A</strong></td>
+<td>域名 → IPv4 地址</td>
+<td>找真实 IP，判断是否在用</td>
+</tr>
+<tr>
+<td><strong>AAAA</strong></td>
+<td>域名 → IPv6 地址</td>
+<td>同上，IPv6 环境</td>
+</tr>
+<tr>
+<td><strong>CNAME</strong></td>
+<td>别名记录（<code>cdn.example.com → aws.com</code>）</td>
+<td>发现 CDN、云服务、潜在子域接管</td>
+</tr>
+<tr>
+<td><strong>MX</strong></td>
+<td>邮件服务器地址</td>
+<td>找邮件系统，常指向 <code>mail.example.com</code></td>
+</tr>
+<tr>
+<td><strong>NS</strong></td>
+<td>域名服务器</td>
+<td>找 DNS 服务商，判断是否有子域授权</td>
+</tr>
+<tr>
+<td><strong>TXT</strong></td>
+<td>文本信息</td>
+<td>常用于 SPF（防钓鱼）、DKIM、证书验证，可能泄露内部信息</td>
+</tr>
+<tr>
+<td><strong>SRV</strong></td>
+<td>服务定位（如 <code>_sip._tcp</code>）</td>
+<td>找 VoIP、LDAP、Kerberos 等内部服务</td>
+</tr>
+<tr>
+<td><strong>PTR</strong></td>
+<td>反向解析（IP → 域名）</td>
+<td>从 IP 反查域名，用于资产拓线</td>
+</tr>
+</tbody></table>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">dig A example.com</span><br><span class="line">dig CNAME www.example.com</span><br><span class="line">dig MX example.com</span><br><span class="line">dig TXT example.com</span><br><span class="line">dig NS example.com</span><br><span class="line">dig SRV _ldap._tcp.example.com</span><br></pre></td></tr></table></figure>
+
+<p>示例：</p>
+<p><img class="lazy" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAABGdBTUEAALGPC/xhBQAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAAaADAAQAAAABAAAAAQAAAADa6r/EAAAAC0lEQVQIHWNgAAIAAAUAAY27m/MAAAAASUVORK5CYII=" data-src="https://pub-4780fb9811854aaf95e3afc47620b25b.r2.dev/PicGo/1755401215436-80afab2a-a682-4c9b-ad6a-59c09d851fe5.png" alt="img"></p>
+<h3 id="子域名爆破（暴力枚举）"><a href="#子域名爆破（暴力枚举）" class="headerlink" title="子域名爆破（暴力枚举）"></a>子域名爆破（暴力枚举）</h3><p>原理：</p>
+<ul>
+<li>使用常见子域名字典（如 <code>www</code>, <code>mail</code>, <code>admin</code>, <code>vpn</code>, <code>test</code>, <code>api</code>）</li>
+<li>拼接成 <code>xxx.example.com</code></li>
+<li>查询它的 <strong>A 或 CNAME 记录</strong></li>
+<li>如果有响应，说明存在</li>
+<li><code>gobuster dns -d example.com -w wordlist.txt</code></li>
+</ul>
+<h3 id="利用-DNS-区域传送（Zone-Transfer）漏洞"><a href="#利用-DNS-区域传送（Zone-Transfer）漏洞" class="headerlink" title="利用 DNS 区域传送（Zone Transfer）漏洞"></a>利用 DNS 区域传送（Zone Transfer）漏洞</h3><p>主从 DNS 之间需要同步数据，叫“区域传送”（AXFR）。如果配置错误，<strong>任何人都能请求传送，拿到整个域名的所有记录</strong>！</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dig axfr @ns1.example.com example.com</span><br></pre></td></tr></table></figure>
+
+<h3 id="利用-NSEC-NSEC3-遍历（DNSSEC-Zone-Walking）"><a href="#利用-NSEC-NSEC3-遍历（DNSSEC-Zone-Walking）" class="headerlink" title="利用 NSEC&#x2F;NSEC3 遍历（DNSSEC Zone Walking）"></a>利用 NSEC&#x2F;NSEC3 遍历（DNSSEC Zone Walking）</h3><p>开启 DNSSEC 的域名用 NSEC 记录来“证明某个域名不存在”，但它会暴露“下一个存在的域名”。攻击者可以一步步“问”出所有子域名。</p>
+<p>问：admin123.example.com 存在吗？ </p>
+<p>答：不存在，下一个存在的是 dev.example.com</p>
+<h4 id="防御："><a href="#防御：" class="headerlink" title="防御："></a>防御：</h4><p>使用 <strong>NSEC3</strong>（哈希混淆顺序），防止遍历。</p>
+<h3 id="SRV-枚举与-NSEC-遍历-方式对比"><a href="#SRV-枚举与-NSEC-遍历-方式对比" class="headerlink" title="SRV 枚举与 NSEC 遍历 方式对比"></a>SRV 枚举与 NSEC 遍历 方式对比</h3><table>
+<thead>
+<tr>
+<th><strong>特性</strong></th>
+<th><strong>SRV 记录枚举</strong></th>
+<th><strong>NSEC Zone Walking</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>前提条件</strong></td>
+<td>目标域配置了相关服务的 SRV 记录</td>
+<td>目标域启用 DNSSEC 且使用 NSEC (非 NSEC3)</td>
+</tr>
+<tr>
+<td><strong>发现范围</strong></td>
+<td>仅限于提供特定服务的子域名</td>
+<td>理论上可以发现域内的所有子域名</td>
+</tr>
+<tr>
+<td><strong>方法</strong></td>
+<td>查询已知的常见 SRV 记录名称</td>
+<td>利用 NSEC 记录的链式结构进行遍历</td>
+</tr>
+<tr>
+<td><strong>工具</strong></td>
+<td><code>dnsrecon</code>, <code>sublist3r</code>, 手动 <code>dig</code></td>
+<td><code>ldns-walk</code>, <code>dnsrecon</code> (支持 DNSSEC 枚举), 手动 <code>dig</code></td>
+</tr>
+<tr>
+<td><strong>有效性</strong></td>
+<td>依赖于服务配置</td>
+<td>依赖于 DNSSEC 配置 (NSEC vs NSEC3)</td>
+</tr>
+</tbody></table>
+<h3 id="被动查询第三方数据库（不接触目标，隐蔽）"><a href="#被动查询第三方数据库（不接触目标，隐蔽）" class="headerlink" title="被动查询第三方数据库（不接触目标，隐蔽）"></a>被动查询第三方数据库（不接触目标，隐蔽）</h3><h4 id="常用平台"><a href="#常用平台" class="headerlink" title="常用平台"></a>常用平台</h4><table>
+<thead>
+<tr>
+<th><strong>网站</strong></th>
+<th><strong>特点</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>crt.sh</td>
+<td>查证书，获取 HTTPS 子域名</td>
+</tr>
+<tr>
+<td>DNSdumpster.com</td>
+<td>可视化强，查 A&#x2F;CNAME&#x2F;MX 等</td>
+</tr>
+<tr>
+<td>SecurityTrails</td>
+<td>历史记录丰富，支持 API</td>
+</tr>
+<tr>
+<td>VirusTotal</td>
+<td>查域名，看“Relations”</td>
+</tr>
+<tr>
+<td>Hackertarget.com</td>
+<td>免费在线工具</td>
+</tr>
+</tbody></table>
+<h2 id="搜索引擎收集子域"><a href="#搜索引擎收集子域" class="headerlink" title="搜索引擎收集子域"></a>搜索引擎收集子域</h2><h3 id="搜索引擎的原理："><a href="#搜索引擎的原理：" class="headerlink" title="搜索引擎的原理："></a>搜索引擎的原理：</h3><p><strong>爬取、索引、检索和排序</strong>。其目标是快速、准确地从海量互联网信息中找到用户需要的内容。</p>
+<p>搜索引擎就像个超级勤奋的图书管理员，派小机器人到处翻网页、做笔记，然后根据你搜的词，从笔记里找出最相关的结果。而“子域名”呢，它要么是顺着链接爬过去的，要么是别人提到的，要么是网站自己报上来的。</p>
+<p><strong>注意每个搜索引擎每个平台的结果可能都不一致的，所以在搜集资产时多个平台同时使用较好。</strong></p>
+<p><a target="_blank" rel="noopener" href="https://ght.se7ensec.cn/"><strong>https://ght.se7ensec.cn/</strong></a></p>
+<p><a target="_blank" rel="noopener" href="https://www.exploit-db.com/google-hacking-database"><strong>https://www.exploit-db.com/google-hacking-database</strong></a></p>
+<p><a target="_blank" rel="noopener" href="https://dorks.faisalahmed.me/"><strong>https://dorks.faisalahmed.me/</strong></a></p>
+<h2 id="威胁情报、空间汇测平台收集子域"><a href="#威胁情报、空间汇测平台收集子域" class="headerlink" title="威胁情报、空间汇测平台收集子域"></a>威胁情报、空间汇测平台收集子域</h2><p>原理：主动扫描全网设备，记录 IP、域名、端口、服务等。</p>
+<p>平台有 FOFA、hunter、Shodan 等等。</p>
+<h2 id="代码托管平台搜索（GitHub、GitLab、Gitee）"><a href="#代码托管平台搜索（GitHub、GitLab、Gitee）" class="headerlink" title="代码托管平台搜索（GitHub、GitLab、Gitee）"></a>代码托管平台搜索（GitHub、GitLab、Gitee）</h2><ul>
+<li><p><strong>原理</strong>：<br>开发者可能不小心把配置文件、API 地址、内部域名上传到公开仓库。</p>
+</li>
+<li><p><strong>常见泄露文件</strong>：</p>
+</li>
+<li><p><code>config.js</code>、<code>docker-compose.yml</code>、<code>nginx.conf</code></p>
+</li>
+<li><p><code>crossdomain.xml</code>、<code>robots.txt</code>、<code>sitemap.xml</code></p>
+</li>
+<li><p><strong>搜索关键词</strong>：</p>
+</li>
+<li><p><code>&quot;example.com&quot; password</code></p>
+</li>
+<li><p><code>&quot;api.*.example.com&quot;</code></p>
+</li>
+<li><p><code>filename:config domain</code></p>
+</li>
+<li><p><strong>工具</strong>：</p>
+</li>
+<li><p>GitHub 搜索 + 高级语法</p>
+</li>
+<li><p><code>TruffleHog</code>（扫描历史提交中的密钥和域名）</p>
+</li>
+<li><p><code>GitRob</code></p>
+</li>
+</ul>
+<h2 id="ASN-IP-段反查"><a href="#ASN-IP-段反查" class="headerlink" title="ASN &#x2F; IP 段反查"></a>ASN &#x2F; IP 段反查</h2><p>ASN&#x2F;IP段反查的原理是：先找到目标所属的“网络身份证”（ASN），再查这个“身份证”下管理的所有IP地址段，最后通过反向DNS或空间测绘，找出这些IP上托管的所有域名。这种方法非常靠谱，尤其适合大企业资产发现。</p>
+<ul>
+<li><p><strong>原理</strong>：</p>
+</li>
+<li><p>先查 <code>example.com</code> 的 IP</p>
+</li>
+<li><p>再查这个 IP 属于哪个 AS 号（自治系统号）</p>
+</li>
+<li><p>然后查这个 AS 号下所有 IP 段</p>
+</li>
+<li><p>最后反查这些 IP 段对应的域名（反向 DNS）</p>
+</li>
+<li><p><strong>工具</strong>：</p>
+</li>
+<li><p><code>bgp.he.net</code>（查 ASN）</p>
+</li>
+<li><p><code>nmap --script targets-asn</code>（批量生成 IP 列表）</p>
+</li>
+<li><p><code>Fofa</code> 搜 <code>asn=&quot;AS12345&quot;</code></p>
+</li>
+<li><p><strong>适用场景</strong>：大型企业，IP 资产多。</p>
+</li>
+</ul>
+<p>你想收集“阿里云”相关的所有资产：</p>
+<ol>
+<li>查 <code>aliyun.com</code> → IP：<code>112.124.15.1</code></li>
+<li>查IP归属 → ASN：<code>AS45102</code>（阿里云）</li>
+<li>查 <code>AS45102</code> 下所有IP段（成千上万个）</li>
+<li>用 FOFA 搜：<code>asn=&quot;AS45102&quot; &amp;&amp; domain~&quot;ali&quot;</code></li>
+<li>结果：</li>
+</ol>
+<ul>
+<li><code>ecs.aliyun.com</code></li>
+<li><code>oss-cn-beijing.aliyuncs.com</code></li>
+<li><code>slb.aliyuncs.com</code></li>
+<li><code>yundun.com</code></li>
+<li><code>alidns.com</code></li>
+<li>…… 数百个子域名和关联资产</li>
+</ul>
+<p>🎯 这就是 <strong>ASN反查的强大之处</strong>：<strong>从一个点，扩展出整个组织的数字资产地图</strong>。</p>
+<h2 id="域名备案、Whois-查询和反查"><a href="#域名备案、Whois-查询和反查" class="headerlink" title="域名备案、Whois 查询和反查"></a>域名备案、Whois 查询和反查</h2><p>在对一些大型的目标进行信息搜集时，还可以通过查找域名备案信息来发现同备案的其他域名资产。如搜集qq的子域名时，最常见的即为对qq.com进行子域名搜集，此时就会遗漏其余顶级域名资产。</p>
+<p>WHOIS是一个公共数据库系统，用来查询“谁注册了某个域名”或“谁拥有某个IP地址段”。</p>
+<p><a target="_blank" rel="noopener" href="https://beian.miit.gov.cn/">https://beian.miit.gov.cn/</a> （公司名）</p>
+<p><a target="_blank" rel="noopener" href="https://beian.mps.gov.cn/#/query/webSearch">https://beian.mps.gov.cn/#/query/webSearch</a></p>
+<p><a target="_blank" rel="noopener" href="https://whois.chinaz.com/">https://whois.chinaz.com/</a></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><details class="lake-collapse"><summary id="u37baff1d"><span class="ne-text">什么是证书透明度日志？</span></summary><p id="u40906db0" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">把互联网上的网站（比如 </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">baidu.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">）想象成一个个商店。为了让顾客安全地访问，这些商店需要一个“安全营业执照”——这就是我们说的 </span><strong><span class="ne-text" style="color: rgb(44, 44, 54)">SSL/TLS 证书</span></strong><span class="ne-text" style="color: rgb(44, 44, 54)">。</span></p><p id="uf345b808" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">为了防止有人偷偷开个假店（比如 </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">fake-baidu.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">）国际上规定：</span><span class="ne-text" style="color: rgb(143, 145, 168)">所有正规颁发的“营业执照”（证书），都必须登记在一个或多个</span><strong><span class="ne-text" style="color: rgb(143, 145, 168)">公开的登记本</span></strong><span class="ne-text" style="color: rgb(143, 145, 168)">里，谁都可以查！</span></p><p id="udf714893" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">这个“公开的登记本”，就是 </span><strong><span class="ne-text" style="color: rgb(44, 44, 54)">证书透明度日志（Certificate Transparency Log，简称 CT Log）</span></strong><span class="ne-text" style="color: rgb(44, 44, 54)">。</span></p></details>
+
+<details class="lake-collapse"><summary id="u147d31b3"><span class="ne-text">证书透明度收集子域名的原理是什么？</span></summary><p id="ua4290993" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">每当百度给 </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2)">map.baidu.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> 这个地图服务申请一个“安全执照”时，就必须把这个证书写进公开的“登记本”里。</span><span class="ne-text" style="color: rgb(143, 145, 168)">证书透明度就像是一个“证书公开花名册”，我们通过翻这个花名册，就能知道一个公司（网站）底下有多少个“小部门”（子域），哪怕它们平时藏得很深。</span></p></details>
+
+<details class="lake-collapse"><summary id="u40b138a2"><span class="ne-text">什么很多加了SSL的域名在crt.sh上查不到呢？企业是如何进行操作的？</span></summary><p id="u1f8bc5aa" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text">使用通配符、公共 CA 签发但禁用 CTlog（</span><span class="ne-text" style="color: rgb(44, 44, 54)">如DigiCert、Sectigo提供“私有证书”服务</span><span class="ne-text">)、私有证书。</span></p><p id="uf3ae1b65" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"></p><p id="uda49db7d" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">企业通常会根据安全策略和业务需求，采取以下做法：</span></p><p id="u0c0e66b6" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(44, 44, 54)">操作 说明</span></strong></p><p id="ufffd994a" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 使用私有CA</span></p><p id="u26afe9e7" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">建立内部PKI体系，为内部系统签发证书，完全不依赖公共CT日志。</span></p><p id="u8f54da5f" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 使用云服务商托管证书</span></p><p id="uc5f6d112" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">如阿里云SSL证书服务、AWS ACM、Google Cloud CAS，这些证书自动管理且不公开。</span></p><p id="uedbf0086" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 选择“私有证书”选项</span></p><p id="u71ace4bd" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">向DigiCert等CA申请时，选择不公开记录到CT日志。</span></p><p id="uac68c238" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 证书生命周期自动化</span></p><p id="u106ae12e" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">使用ACME协议（如Let's Encrypt）自动签发，但Let's Encrypt证书会进入CT日志，因此不适合敏感域名。</span></p><p id="u588cb288" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 限制证书暴露</span></p><p id="ud715ecbd" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">敏感系统（如后台管理、API接口）使用内部DNS和私有证书，避免暴露在公网和crt.sh上。</span></p></details>
+
+<details class="lake-collapse"><summary id="uf91a486c"><span class="ne-text">什么是私有证书？</span></summary><p id="u3f5092c9" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">私有证书在“所有信任其根CA（根证书）的设备或系统”中生效，无论这些设备位于内网还是公网。</span></strong></p><p id="u73494656" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)"></span></strong></p><p id="u072f4dab" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">私有证书能否被信任，取决于：</span></p><p id="ub2dacc4f" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">客户端（浏览器、App、服务器）是否安装并信任了该私有CA的根证书。</span></strong></p><h4 id="j8gOr" style="font-size: 16px; line-height: 24px; margin: 10px 0 5px 0"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 能成功访问的场景：</span></h4><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="ub7c6fdba" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">企业员工的电脑通过MDM（如飞书、钉钉）安装了企业根证书</span></li><li id="u0dadba5d" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">设备访问部署在公网的</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">https://api.company.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（使用私有证书）</span></li><li id="ucf3bff8c" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">因为设备信任根CA，所以连接显示“安全”</span></li></ul><h4 id="IOkcW" style="font-size: 16px; line-height: 24px; margin: 10px 0 5px 0"><span class="ne-text" style="color: rgb(44, 44, 54)">❌</span><span class="ne-text" style="color: rgb(44, 44, 54)"> 无法访问的场景：</span></h4><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="u1aafa278" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">普通用户用个人电脑访问同一个</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">https://api.company.com</span></code></li><li id="u92e84473" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">因为其设备未安装企业根证书，浏览器会提示“您的连接不是私密连接”</span></li></ul></details>
+
+<details class="lake-collapse"><summary id="u1a07a06d"><span class="ne-text">什么是域传送？域传送漏洞的原理是？如何防御域传送漏洞？</span></summary><p id="ua8fb7331" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">DNS区域传送（DNS Zone Transfer），这是一种在DNS服务器之间同步域名解析记录的机制，主要用于主从DNS服务器之间的数据复制。</span></p><p id="u316c1e35" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">原理：</span><strong><span class="ne-text" style="color: rgb(44, 44, 54)">DNS服务器错误地允许任意外部用户或未授权的客户端发起区域传送请求（AXFR），从而泄露整个域名的完整解析记录</span></strong><span class="ne-text" style="color: rgb(44, 44, 54)">。</span></p><p id="udbb6068f" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">防御主要是最小权限原则，限制</span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">allow-transfer</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> + 使用TSIG认证。</span></p></details>
+
+<details class="lake-collapse"><summary id="ub84b68cd"><span class="ne-text">什么是内容安全策略？为什么内容安全策略可以搜集子域名？</span></summary><p id="u7c1b1465" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text">内容安全策略（CSP，Content Security Policy）是一种声明的安全机制，可以让网站运营者能够控制遵循CSP的用户代理（通常是浏览器）的行为。通过控制要启用哪些功能，以及从哪里下载内容，可以减少网站的攻击面。</span></p><p id="u668b7a45" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">简而言之吗，网站为了安全，写了个“禁止名单”或“允许名单”（CSP），但一不小心把自己用的子域名都写进去了。别人一看这个名单，就知道有哪些子域名了。</span></strong></p></details>
+
+<details class="lake-collapse"><summary id="u9c40dffa"><span class="ne-text">子域名爆破的原理是什么？</span></summary><p id="u01a53a01" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text">爆破的原理其实是通过枚举的方式来实现的，通过不断的拼接字典中的内容去枚举域名的A记录，但是该方法一般需要解决泛解析问题。</span></p><p id="uccd33c55" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text">dns 协议查询</span></p><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="u4dcd0f4c" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">“</span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">dev.example.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><span class="ne-text" style="color: rgb(44, 44, 54)">的 A 记录是什么？”</span></li><li id="u024718f9" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">如果存在，返回 IP</span></li></ul></details>
+
+<details class="lake-collapse"><summary id="uf080b700"><span class="ne-text">什么是泛解析？如何解决泛解析？</span></summary><p id="u31c80d2b" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><strong><span class="ne-text" style="color: rgb(143, 145, 168)">泛解析（Wildcard DNS）</span></strong><span class="ne-text" style="color: rgb(143, 145, 168)"> 是指 DNS 服务器配置了一条通配符记录（如 </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(143, 145, 168); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">*.example.com</span></code><span class="ne-text" style="color: rgb(143, 145, 168)">），使得</span><strong><span class="ne-text" style="color: rgb(143, 145, 168)">任何不存在的子域名都会被解析到一个默认的 IP 地址</span></strong><span class="ne-text" style="color: rgb(143, 145, 168)">。</span></p><pre data-language="plain" id="SHzQR" class="ne-codeblock language-plain" style="border: 1px solid #e8e8e8; border-radius: 2px; background: #f9f9f9; padding: 16px; font-size: 13px; color: #595959"><code>*.example.com  IN  A  192.0.2.100</code></pre><ul class="ne-ul" style="margin: 0; padding-left: 23px"><li id="ued2f8c04" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">mail.example.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><span class="ne-text" style="color: rgb(44, 44, 54)">→</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">192.0.2.10</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（真实存在）</span></li><li id="u956bba95" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">✅</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">www.example.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><span class="ne-text" style="color: rgb(44, 44, 54)">→</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">192.0.2.20</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（真实存在）</span></li><li id="ucf6d8281" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">❌</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">xyz123.example.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><span class="ne-text" style="color: rgb(44, 44, 54)">→</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">192.0.2.100</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（</span><strong><span class="ne-text" style="color: rgb(44, 44, 54)">不存在，但被泛解析了！</span></strong><span class="ne-text" style="color: rgb(44, 44, 54)">）</span></li><li id="u0e600a5a" data-lake-index-type="0"><span class="ne-text" style="color: rgb(44, 44, 54)">❌</span><span class="ne-text" style="color: rgb(44, 44, 54)"> </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">aaaa.example.com</span></code><span class="ne-text" style="color: rgb(44, 44, 54)"> → </span><code class="ne-code" style="font-family: SFMono-Regular, Consolas, Liberation Mono, Menlo, Courier, monospace; background-color: rgba(0, 0, 0, 0.06); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 2px; padding: 0px 2px"><span class="ne-text" style="color: rgb(44, 44, 54); background-color: rgba(175, 184, 193, 0.2); font-size: 14px">192.0.2.100</span></code><span class="ne-text" style="color: rgb(44, 44, 54)">（同上）</span></li></ul><p id="u1d689f95" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)"></span></p><p id="uf630a226" class="ne-p" style="margin: 0; padding: 0; min-height: 24px"><span class="ne-text" style="color: rgb(44, 44, 54)">发送两个</span><strong><span class="ne-text" style="color: rgb(44, 44, 54)">完全随机的子域名</span></strong><span class="ne-text" style="color: rgb(44, 44, 54)">查询，如果都返回相同 IP → 泛解析。</span><span class="ne-text">然后随机生成域名查询，记录 IP 和 TTL，IP 出现频率高，IIP 相同且泛解析的 TTL 也相同（</span><span class="ne-text" style="color: rgb(44, 44, 54)">真实子域名的 TTL 不同）</span><span class="ne-text">，则加入黑名单</span><strong><span class="ne-text" style="color: rgb(143, 145, 168)">泛解析规则列表</span></strong><span class="ne-text">，最后可以再加上响应内容，进行相似度对比。</span></p></details>
+
+
+
+<p>参考文章：</p>
+<p><a target="_blank" rel="noopener" href="https://security.tencent.com/index.php/blog/msg/161">红蓝对抗之域名搜集方法总结 - 安全动态 - 腾讯安全应急响应中心</a></p>
+<p><a target="_blank" rel="noopener" href="https://teamssix.com/191206-172901">【漏洞复现】DNS域传送漏洞 | TeamsSix</a></p>
+<p><a target="_blank" rel="noopener" href="https://github.com/vulhub/vulhub/blob/master/dns/dns-zone-transfer/README.zh-cn.md">vulhub&#x2F;dns&#x2F;dns-zone-transfer&#x2F;README.zh-cn.md at master · vulhub&#x2F;vulhub</a></p>
+<p><a target="_blank" rel="noopener" href="https://www.k0rz3n.com/2020/08/08/%E7%BD%91%E7%BB%9C%E5%AE%89%E5%85%A8%E4%B8%AD%E7%9A%84DNS%E5%88%86%E6%9E%90/">网络安全中的DNS分析</a></p>
+
+<div class="article-footer fs14"></div>
+</article>
+<div class="related-wrap" id="read-next"><section class="body"><div class="item" id="prev"><div class="note">回顾上一篇</div><a href="/wiki/WebSec/Web%20URL%20%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3.html">Web URL 路由解析机制详解</a></div><div class="item" id="next"><div class="note">接下来阅读</div><a href="/wiki/WebSec/SQL%E6%B3%A8%E5%85%A5%E5%9F%BA%E7%A1%80.html">SQL注入基础</a></div></section></div>
+
+
+
+
+<footer class="page-footer footnote"><hr><div class="text"><center>
+  本站由 @<a href="/"><strong>M3ng9e</strong></a> 使用 
+  <a target="_blank" rel="noopener" href="https://github.com/xaoxuu/hexo-theme-stellar/tree/1.29.1">Stellar 1.29.1</a> 主题创建。
+</center>
+<center>
+<script type="text/javascript">
+function show_runtime() {
+    window.setTimeout("show_runtime()", 1000);
+    X = new Date("2025/05/08 18:00:00 ");
+    Y = new Date();
+    T = (Y.getTime() - X.getTime());
+    M = 24 * 60 * 60 * 1000;
+    a = T / M;
+    A = Math.floor(a);
+    b = (a - A) * 24;
+    B = Math.floor(b);
+    c = (b - B) * 60;
+    C = Math.floor((b - B) * 60);
+    D = Math.floor((c - C) * 60);
+    runtime_span.innerHTML = "🌱 营业 " + A + "天-" + B + "小时-" + C + "分-" + D + "秒 🛞"
+}
+show_runtime();
+</script>
+<span id="runtime_span"> </span>
+<center>
+<span class="totalcount"> 共发表 4 篇 Blog · </span> <span class="post-count"> 总计 8.4k 字 </span></div></footer>
+<div class="main-mask" onclick="sidebar.dismiss()"></div></div><aside class="l_right">
+<div class="widgets">
+
+
+
+<widget class="widget-wrapper toc" id="data-toc" collapse="false"><div class="widget-header dis-select"><span class="name">本文目录</span><a class="cap-action" onclick="sidebar.toggleTOC()" ><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg></a></div><div class="widget-body"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%81%E4%B9%A6%E9%80%8F%E6%98%8E%E5%BA%A6%E6%94%B6%E9%9B%86%E5%AD%90%E5%9F%9F%E5%90%8D"><span class="toc-text">证书透明度收集子域名</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%9F%E7%90%86"><span class="toc-text">原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%9D%E8%80%83"><span class="toc-text">思考</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#tTnHH"><span class="toc-text">✅ 能成功访问的场景：</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#M6L7X"><span class="toc-text">❌ 无法访问的场景：</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%84%E6%A3%80%E6%9F%A5%E6%94%B6%E9%9B%86%E5%AD%90%E5%9F%9F"><span class="toc-text">常规检查收集子域</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9F%9F%E4%BC%A0%E9%80%81"><span class="toc-text">域传送</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%9F%9F%E4%BC%A0%E9%80%81"><span class="toc-text">什么是域传送</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E6%96%B9%E5%BC%8F"><span class="toc-text">工作方式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%98%B2%E5%BE%A1"><span class="toc-text">防御</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AB%99%E7%82%B9%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6-%E4%BC%9A%E6%9A%B4%E9%9C%B2%E9%83%A8%E5%88%86%E5%AD%90%E5%9F%9F%E5%90%8D"><span class="toc-text">站点配置文件(会暴露部分子域名)</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E5%AE%B9%E5%AE%89%E5%85%A8%E7%AD%96%E7%95%A5"><span class="toc-text">内容安全策略</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E6%96%B9%E6%B3%95"><span class="toc-text">实现方法</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DNS-%E6%9E%9A%E4%B8%BE-%E6%9F%A5%E8%AF%A2%E6%94%B6%E9%9B%86%E5%AD%90%E5%9F%9F%E5%90%8D"><span class="toc-text">DNS 枚举&amp;查询收集子域名</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%90%E5%9F%9F%E5%90%8D%E7%88%86%E7%A0%B4%EF%BC%88%E6%9A%B4%E5%8A%9B%E6%9E%9A%E4%B8%BE%EF%BC%89"><span class="toc-text">子域名爆破（暴力枚举）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A9%E7%94%A8-DNS-%E5%8C%BA%E5%9F%9F%E4%BC%A0%E9%80%81%EF%BC%88Zone-Transfer%EF%BC%89%E6%BC%8F%E6%B4%9E"><span class="toc-text">利用 DNS 区域传送（Zone Transfer）漏洞</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A9%E7%94%A8-NSEC-NSEC3-%E9%81%8D%E5%8E%86%EF%BC%88DNSSEC-Zone-Walking%EF%BC%89"><span class="toc-text">利用 NSEC&#x2F;NSEC3 遍历（DNSSEC Zone Walking）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%98%B2%E5%BE%A1%EF%BC%9A"><span class="toc-text">防御：</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SRV-%E6%9E%9A%E4%B8%BE%E4%B8%8E-NSEC-%E9%81%8D%E5%8E%86-%E6%96%B9%E5%BC%8F%E5%AF%B9%E6%AF%94"><span class="toc-text">SRV 枚举与 NSEC 遍历 方式对比</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%A2%AB%E5%8A%A8%E6%9F%A5%E8%AF%A2%E7%AC%AC%E4%B8%89%E6%96%B9%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%88%E4%B8%8D%E6%8E%A5%E8%A7%A6%E7%9B%AE%E6%A0%87%EF%BC%8C%E9%9A%90%E8%94%BD%EF%BC%89"><span class="toc-text">被动查询第三方数据库（不接触目标，隐蔽）</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%B9%B3%E5%8F%B0"><span class="toc-text">常用平台</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E6%94%B6%E9%9B%86%E5%AD%90%E5%9F%9F"><span class="toc-text">搜索引擎收集子域</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%90%9C%E7%B4%A2%E5%BC%95%E6%93%8E%E7%9A%84%E5%8E%9F%E7%90%86%EF%BC%9A"><span class="toc-text">搜索引擎的原理：</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A8%81%E8%83%81%E6%83%85%E6%8A%A5%E3%80%81%E7%A9%BA%E9%97%B4%E6%B1%87%E6%B5%8B%E5%B9%B3%E5%8F%B0%E6%94%B6%E9%9B%86%E5%AD%90%E5%9F%9F"><span class="toc-text">威胁情报、空间汇测平台收集子域</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%E6%89%98%E7%AE%A1%E5%B9%B3%E5%8F%B0%E6%90%9C%E7%B4%A2%EF%BC%88GitHub%E3%80%81GitLab%E3%80%81Gitee%EF%BC%89"><span class="toc-text">代码托管平台搜索（GitHub、GitLab、Gitee）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ASN-IP-%E6%AE%B5%E5%8F%8D%E6%9F%A5"><span class="toc-text">ASN &#x2F; IP 段反查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%9F%E5%90%8D%E5%A4%87%E6%A1%88%E3%80%81Whois-%E6%9F%A5%E8%AF%A2%E5%92%8C%E5%8F%8D%E6%9F%A5"><span class="toc-text">域名备案、Whois 查询和反查</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#j8gOr"><span class="toc-text">✅ 能成功访问的场景：</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#IOkcW"><span class="toc-text">❌ 无法访问的场景：</span></a></li></ol></li></ol></li></ol></div><div class="widget-footer">
+
+<a class="top" onclick="util.scrollTop()"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12Z"/><path stroke-linecap="round" stroke-linejoin="round" d="m9 15.5l3-3l3 3m-6-4l3-3l3 3"/></g></svg><span>回到顶部</span></a></div></widget>
+</div></aside><div class='float-panel blur'>
+  <button type='button' style='display:none' class='laptop-only rightbar-toggle mobile' onclick='sidebar.rightbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6h11m-11 6h11m-11 6h11M4 6h1v4m-1 0h2m0 8H4c0-1 2-2 2-3s-1-1.5-2-1"/></svg>
+  </button>
+  <button type='button' style='display:none' class='mobile-only leftbar-toggle mobile' onclick='sidebar.leftbar()'>
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 11c0-3.771 0-5.657 1.172-6.828C4.343 3 6.229 3 10 3h4c3.771 0 5.657 0 6.828 1.172C22 5.343 22 7.229 22 11v2c0 3.771 0 5.657-1.172 6.828C19.657 21 17.771 21 14 21h-4c-3.771 0-5.657 0-6.828-1.172C2 18.657 2 16.771 2 13z"/><path id="sep" stroke-linecap="round" d="M5.5 10h6m-5 4h4m4.5 7V3"/></g></svg>
+  </button>
+</div>
+</div><div class="scripts">
+<script type="text/javascript">
+  const ctx = {
+    date_suffix: {
+      just: `刚刚`,
+      min: `分钟前`,
+      hour: `小时前`,
+      day: `天前`,
+    },
+    root : `/`,
+    tag_plugins: {
+      chat: Object.assign({"api":"https://siteinfo.listentothewind.cn/api/v1"}),
+    }
+  };
+
+  // required plugins (only load if needs)
+  if (`local_search`) {
+    ctx.search = {};
+    ctx.search.service = `local_search`;
+    if (ctx.search.service == 'local_search') {
+      let service_obj = Object.assign({}, `{"field":"all","path":"/search.json","content":true,"skip_search":null,"sort":"-date"}`);
+      ctx.search[ctx.search.service] = service_obj;
+    }
+  }
+  const def = {
+    avatar: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/avatar/round/3442075.svg`,
+    cover: `https://gcore.jsdelivr.net/gh/cdn-x/placeholder@1.0.12/cover/76b86c0226ffd.svg`,
+  };
+  const deps = {
+    jquery: `https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js`,
+    marked: `https://cdn.jsdelivr.net/npm/marked@13.0.1/lib/marked.umd.min.js`
+  }
+  
+
+</script>
+
+<script type="text/javascript">
+  function RunItem() {
+    this.list = []; // 存放回调函数
+    this.start = () => {
+      for (var i = 0; i < this.list.length; i++) {
+        this.list[i].run();
+      }
+    };
+    this.push = (fn, name, setRequestAnimationFrame = true) => {
+      let myfn = fn
+      if (setRequestAnimationFrame) {
+        myfn = () => {
+          utils.requestAnimationFrame(fn)
+        }
+      }
+      var f = new Item(myfn, name);
+      this.list.push(f);
+    };
+    this.remove = (name) => {
+      for (let index = 0; index < this.list.length; index++) {
+        const e = this.list[index];
+        if (e.name == name) {
+          this.list.splice(index, 1);
+        }
+      }
+    }
+    // 构造一个可以run的对象
+    function Item(fn, name) {
+      // 函数名称
+      this.name = name || fn.name;
+      // run方法
+      this.run = () => {
+        try {
+          fn()
+        } catch (error) {
+          console.log(error);
+        }
+      };
+    }
+  }
+
+  const utils = {
+    // 懒加载 css https://github.com/filamentgroup/loadCSS
+    css: (href, before, media, attributes) => {
+      var doc = window.document;
+      var ss = doc.createElement("link");
+      var ref;
+      if (before) {
+        ref = before;
+      } else {
+        var refs = (doc.body || doc.getElementsByTagName("head")[0]).childNodes;
+        ref = refs[refs.length - 1];
+      }
+      var sheets = doc.styleSheets;
+      if (attributes) {
+        for (var attributeName in attributes) {
+          if (attributes.hasOwnProperty(attributeName)) {
+            ss.setAttribute(attributeName, attributes[attributeName]);
+          }
+        }
+      }
+      ss.rel = "stylesheet";
+      ss.href = href;
+      ss.media = "only x";
+      function ready(cb) {
+        if (doc.body) {
+          return cb();
+        }
+        setTimeout(function () {
+          ready(cb);
+        });
+      }
+      ready(function () {
+        ref.parentNode.insertBefore(ss, before ? ref : ref.nextSibling);
+      });
+      var onloadcssdefined = function (cb) {
+        var resolvedHref = ss.href;
+        var i = sheets.length;
+        while (i--) {
+          if (sheets[i].href === resolvedHref) {
+            return cb();
+          }
+        }
+        setTimeout(function () {
+          onloadcssdefined(cb);
+        });
+      };
+      function loadCB() {
+        if (ss.addEventListener) {
+          ss.removeEventListener("load", loadCB);
+        }
+        ss.media = media || "all";
+      }
+      if (ss.addEventListener) {
+        ss.addEventListener("load", loadCB);
+      }
+      ss.onloadcssdefined = onloadcssdefined;
+      onloadcssdefined(loadCB);
+      return ss;
+    },
+
+    js: (src, opt) => new Promise((resolve, reject) => {
+      var script = document.createElement('script');
+      if (src.startsWith('/')) {
+        src = ctx.root + src.substring(1);
+      }
+      script.src = src;
+      if (opt) {
+        for (let key of Object.keys(opt)) {
+          script[key] = opt[key]
+        }
+      } else {
+        // 默认异步，如果需要同步，第二个参数传入 {} 即可
+        script.async = true
+      }
+      script.onerror = reject
+      script.onload = script.onreadystatechange = function () {
+        const loadState = this.readyState
+        if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+        script.onload = script.onreadystatechange = null
+        resolve()
+      }
+      document.head.appendChild(script)
+    }),
+
+    jq: (fn) => {
+      if (typeof jQuery === 'undefined') {
+        utils.js(deps.jquery).then(fn)
+      } else {
+        fn()
+      }
+    },
+
+    onLoading: (el) => {
+      if (el) {
+        $(el).append('<div class="loading-wrap"><svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" stroke-opacity=".3" d="M12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="1.3s" values="60;0"/></path><path stroke-dasharray="15" stroke-dashoffset="15" d="M12 3C16.9706 3 21 7.02944 21 12"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.3s" values="15;0"/><animateTransform attributeName="transform" dur="1.5s" repeatCount="indefinite" type="rotate" values="0 12 12;360 12 12"/></path></g></svg></div>');
+      }
+    },
+    onLoadSuccess: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap').remove();
+      }
+    },
+    onLoadFailure: (el) => {
+      if (el) {
+        $(el).find('.loading-wrap svg').remove();
+        $(el).find('.loading-wrap').append('<svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path stroke-dasharray="60" stroke-dashoffset="60" d="M12 3L21 20H3L12 3Z"><animate fill="freeze" attributeName="stroke-dashoffset" dur="0.5s" values="60;0"/></path><path stroke-dasharray="6" stroke-dashoffset="6" d="M12 10V14"><animate fill="freeze" attributeName="stroke-dashoffset" begin="0.6s" dur="0.2s" values="6;0"/></path></g><circle cx="12" cy="17" r="1" fill="currentColor" fill-opacity="0"><animate fill="freeze" attributeName="fill-opacity" begin="0.8s" dur="0.4s" values="0;1"/></circle></svg>');
+        $(el).find('.loading-wrap').addClass('error');
+      }
+    },
+    request: (el, url, callback, onFailure) => {
+      let retryTimes = 3;
+      utils.onLoading(el);
+      function req() {
+        return new Promise((resolve, reject) => {
+          let status = 0; // 0 等待 1 完成 2 超时
+          let timer = setTimeout(() => {
+            if (status === 0) {
+              status = 2;
+              timer = null;
+              reject('请求超时');
+              if (retryTimes == 0) {
+                onFailure();
+              }
+            }
+          }, 5000);
+          fetch(url).then(function (response) {
+            if (status !== 2) {
+              clearTimeout(timer);
+              resolve(response);
+              timer = null;
+              status = 1;
+            }
+            if (response.ok) {
+              return response.json();
+            }
+            throw new Error('Network response was not ok.');
+          }).then(function (data) {
+            retryTimes = 0;
+            utils.onLoadSuccess(el);
+            callback(data);
+          }).catch(function (error) {
+            if (retryTimes > 0) {
+              retryTimes -= 1;
+              setTimeout(() => {
+                req();
+              }, 5000);
+            } else {
+              utils.onLoadFailure(el);
+              onFailure();
+            }
+          });
+        });
+      }
+      req();
+    },
+    /********************** requestAnimationFrame ********************************/
+    // 1、requestAnimationFrame 会把每一帧中的所有 DOM 操作集中起来，在一次重绘或回流中就完成，并且重绘或回流的时间间隔紧紧跟随浏览器的刷新频率，一般来说，这个频率为每秒60帧。
+    // 2、在隐藏或不可见的元素中，requestAnimationFrame 将不会进行重绘或回流，这当然就意味着更少的的 cpu，gpu 和内存使用量。
+    requestAnimationFrame: (fn) => {
+      if (!window.requestAnimationFrame) {
+        window.requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame;
+      }
+      window.requestAnimationFrame(fn)
+    },
+    dark: {},
+  };
+
+  // utils.dark.mode 当前模式 dark or light
+  // utils.dark.toggle() 暗黑模式触发器
+  // utils.dark.push(callBack[,"callBackName"]) 传入触发器回调函数
+  utils.dark.method = {
+    toggle: new RunItem(),
+  };
+  utils.dark = Object.assign(utils.dark, {
+    push: utils.dark.method.toggle.push,
+  });
+</script>
+<script>
+  const sidebar = {
+    leftbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    rightbar: () => {
+      if (l_body) {
+        l_body.toggleAttribute('rightbar');
+        l_body.removeAttribute('leftbar');
+      }
+    },
+    dismiss: () => {
+      if (l_body) {
+        l_body.removeAttribute('leftbar');
+        l_body.removeAttribute('rightbar');
+      }
+    },
+    toggleTOC: () => {
+      document.querySelector('#data-toc').classList.toggle('collapse');
+    }
+  }
+</script>
+<script type="text/javascript">
+  (() => {
+    const tagSwitchers = document.querySelectorAll('.tag-subtree.parent-tag > a > .tag-switcher-wrapper')
+    for (const tagSwitcher of tagSwitchers) {
+      tagSwitcher.addEventListener('click', (e) => {
+        const parent = e.target.closest('.tag-subtree.parent-tag')
+        parent.classList.toggle('expanded')
+        e.preventDefault()
+      })
+    }
+
+    // Get active tag from query string, then activate it.
+    const urlParams = new URLSearchParams(window.location.search)
+    const activeTag = urlParams.get('tag')
+    if (activeTag) {
+      let tag = document.querySelector(`.tag-subtree[data-tag="${activeTag}"]`)
+      if (tag) {
+        tag.querySelector('a').classList.add('active')
+        
+        while (tag) {
+          tag.classList.add('expanded')
+          tag = tag.parentElement.closest('.tag-subtree.parent-tag')
+        }
+      }
+    }
+  })()
+</script>
+
+
+<!-- required -->
+<script src="/js/main.js?v=1.29.1" defer></script>
+
+<script type="text/javascript">
+  const applyTheme = (theme) => {
+    if (theme === 'auto') {
+      document.documentElement.removeAttribute('data-theme')
+    } else {
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+
+    applyThemeToGiscus(theme)
+  }
+
+  const applyThemeToGiscus = (theme) => {
+    theme = theme === 'auto' ? 'preferred_color_scheme' : theme
+
+    const cmt = document.getElementById('giscus')
+    if (cmt) {
+      // This works before giscus load.
+      cmt.setAttribute('data-theme', theme)
+    }
+
+    const iframe = document.querySelector('#comments > section.giscus > iframe')
+    if (iframe) {
+      // This works after giscus loaded.
+      const src = iframe.src
+      const newSrc = src.replace(/theme=[\w]+/, `theme=${theme}`)
+      iframe.src = newSrc
+    }
+  }
+
+  const switchTheme = () => {
+    // light -> dark -> auto -> light -> ...
+    const currentTheme = document.documentElement.getAttribute('data-theme')
+    let newTheme;
+    switch (currentTheme) {
+      case 'light':
+        newTheme = 'dark'
+        break
+      case 'dark':
+        newTheme = 'auto'
+        break
+      default:
+        newTheme = 'light'
+    }
+    applyTheme(newTheme)
+    window.localStorage.setItem('Stellar.theme', newTheme)
+    utils.dark.mode = newTheme === 'auto' ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : newTheme;
+    utils.dark.method.toggle.start();
+
+    const messages = {
+      light: `切换到浅色模式`,
+      dark: `切换到深色模式`,
+      auto: `切换到跟随系统配色`,
+    }
+    hud?.toast?.(messages[newTheme])
+  }
+
+  (() => {
+    // Apply user's preferred theme, if any.
+    const theme = window.localStorage.getItem('Stellar.theme')
+    if (theme !== null) {
+      applyTheme(theme)
+    } else {
+      utils.dark.mode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    utils.dark.method.toggle.start();
+  })()
+</script>
+
+
+<!-- optional -->
+
+
+
+<script defer>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.services = Object.assign({}, JSON.parse(`{"mdrender":{"js":"/js/services/mdrender.js"},"siteinfo":{"js":"/js/services/siteinfo.js","api":null},"ghinfo":{"js":"/js/services/ghinfo.js"},"sites":{"js":"/js/services/sites.js"},"friends":{"js":"/js/services/friends.js"},"timeline":{"js":"/js/services/timeline.js"},"fcircle":{"js":"/js/services/fcircle.js"},"weibo":{"js":"/js/services/weibo.js"},"memos":{"js":"/js/services/memos.js"},"voice":{"js":"/js/plugins/voice.js"},"video":{"js":"/js/plugins/video.js"},"download-file":{"js":"/js/plugins/download-file.js"},"twikoo":{"js":"/js/services/twikoo_latest_comment.js"},"waline":{"js":"/js/services/waline_latest_comment.js"},"artalk":{"js":"/js/services/artalk_latest_comment.js"},"giscus":{"js":"/js/services/giscus_latest_comment.js"}}`));
+    for (let id of Object.keys(ctx.services)) {
+      const js = ctx.services[id].js;
+      if (id == 'siteinfo') {
+        ctx.cardlinks = document.querySelectorAll('a.link-card[cardlink]');
+        if (ctx.cardlinks?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            setCardLink(ctx.cardlinks);
+          });
+        }
+      } else if (id == 'voice') {
+        ctx.voiceAudios = document.querySelectorAll('.voice>audio');
+        if (ctx.voiceAudios?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            createVoiceDom(ctx.voiceAudios);
+          });
+        }
+      } else if (id == 'video') {
+        ctx.videos = document.querySelectorAll('.video>video');
+        if (ctx.videos?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            videoEvents(ctx.videos);
+          });
+        }
+      } else if (id == 'download-file') {
+        ctx.files = document.querySelectorAll('.file');
+        if (ctx.files?.length > 0) {
+          utils.js(js, { defer: true }).then(function () {
+            downloadFileEvent(ctx.files);
+          });
+        }
+      } else {
+        const els = document.getElementsByClassName(`ds-${id}`);
+        if (els?.length > 0) {
+          utils.jq(() => {
+            if (id == 'timeline' || 'memos' || 'marked') {
+              utils.js(deps.marked).then(function () {
+                utils.js(js, { defer: true });
+              });
+            } else {
+              utils.js(js, { defer: true });
+            }
+          });
+        }
+      }
+    }
+
+    // chat iphone time
+    let phoneTimes = document.querySelectorAll('.chat .status-bar .time');
+
+    if (phoneTimes.length > 0) {
+      NowTime();
+      var date = new Date();
+      var sec = date.getSeconds();
+      var firstAdjustInterval = setInterval(firstAdjustTime, 1000 * (60 - sec));
+    }
+
+    function firstAdjustTime() {
+      NowTime();
+      clearInterval(firstAdjustInterval);
+      setInterval(NowTime, 1000 * 60);
+    }
+
+    function NowTime() {
+      for (let i = 0; i < phoneTimes.length; ++i) {
+        var timeSpan = phoneTimes[i];
+        var date = new Date();
+        var hour = date.getHours();
+        var min = date.getMinutes();
+        timeSpan.innerHTML = check(hour) + ":" + check(min);
+      }
+    };
+
+    function check(val) {
+      if (val < 10) {
+        return ("0" + val);
+      }
+      return (val);
+    }
+
+    // chat quote
+    const chat_quote_obverser = new IntersectionObserver((entries, observer) => {
+      entries.filter((entry) => { return entry.isIntersecting }).sort((a, b) => a.intersectionRect.y !== b.intersectionRect.y ? a.intersectionRect.y - b.intersectionRect.y : a.intersectionRect.x - b.intersectionRect.x).forEach((entry, index) => {
+          observer.unobserve(entry.target);
+          setTimeout(() => {
+            entry.target.classList.add('quote-blink');
+            setTimeout(() => {
+              entry.target.classList.remove('quote-blink');
+            }, 1000);
+          }, Math.max(100, 16) * (index + 1));
+        });
+    });
+
+    var chatQuotes = document.querySelectorAll(".chat .talk .quote");
+    chatQuotes.forEach((quote) => {
+      quote.addEventListener('click', function () {
+        var chatCellDom = document.getElementById("quote-" + quote.getAttribute("quotedCellTag"));
+        if (chatCellDom) {
+          var chatDiv = chatCellDom.parentElement;
+          var mid = chatDiv.clientHeight / 2;
+          var offsetTop = chatCellDom.offsetTop;
+          if (offsetTop > mid - chatCellDom.clientHeight / 2) {
+            chatDiv.scrollTo({
+              top: chatCellDom.offsetTop - mid + chatCellDom.clientHeight / 2,
+              behavior: "smooth"
+            });
+          } else {
+            chatDiv.scrollTo({
+              top: 0,
+              behavior: "smooth"
+            });
+          }
+          chat_quote_obverser.observe(chatCellDom);
+        }
+      });
+    });
+  });
+</script>
+
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    ctx.search = {
+      path: `/search.json`,
+    }
+    utils.js('/js/search/local-search.js', { defer: true });
+  });
+</script><script>
+  window.FPConfig = {
+    delay: 0,
+    ignoreKeywords: [],
+    maxRPS: 5,
+    hoverDelay: 25
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/flying-pages@2/flying-pages.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/vanilla-lazyload@19.1.3/dist/lazyload.min.js"></script>
+<script>
+  // https://www.npmjs.com/package/vanilla-lazyload
+  // Set the options globally
+  // to make LazyLoad self-initialize
+  window.lazyLoadOptions = {
+    elements_selector: ".lazy",
+  };
+  // Listen to the initialization event
+  // and get the instance of LazyLoad
+  window.addEventListener(
+    "LazyLoad::Initialized",
+    function (event) {
+      window.lazyLoadInstance = event.detail.instance;
+    },
+    false
+  );
+  document.addEventListener('DOMContentLoaded', function () {
+    window.lazyLoadInstance?.update();
+  });
+</script><script>
+  ctx.fancybox = {
+    selector: `.timenode p>img`,
+    css: `https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css`,
+    js: `https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js`
+  };
+  var selector = '[data-fancybox]:not(.error)';
+  if (ctx.fancybox.selector) {
+    selector += `, ${ctx.fancybox.selector}`
+  }
+  var needFancybox = document.querySelectorAll(selector).length !== 0;
+  if (!needFancybox) {
+    const els = document.getElementsByClassName('ds-memos');
+    if (els != undefined && els.length > 0) {
+      needFancybox = true;
+    }
+  }
+  if (needFancybox) {
+    utils.css(ctx.fancybox.css);
+    utils.js(ctx.fancybox.js, { defer: true }).then(function () {
+      Fancybox.bind(selector, {
+        hideScrollbar: false,
+        Thumbs: {
+          autoStart: false,
+        },
+        caption: (fancybox, slide) => {
+          return slide.triggerEl.alt || slide.triggerEl.dataset.caption || null
+        }
+      });
+    })
+  }
+</script>
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    const swiper_api = document.getElementById('swiper-api');
+    if (swiper_api != undefined) {
+      utils.css(`https://unpkg.com/swiper@10.3.1/swiper-bundle.min.css`);
+      utils.js(`https://unpkg.com/swiper@10.3.1/swiper-bundle.min.js`, { defer: true }).then(function () {
+        const effect = swiper_api.getAttribute('effect') || '';
+        var swiper = new Swiper('.swiper#swiper-api', {
+          slidesPerView: 'auto',
+          spaceBetween: 8,
+          centeredSlides: true,
+          effect: effect,
+          rewind: true,
+          pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+          },
+          navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+          },
+        });
+      })
+    }
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    window.codeElements = document.querySelectorAll('.code');
+    if (window.codeElements.length > 0) {
+      ctx.copycode = {
+        default_text: `Copy`,
+        success_text: `Copied`,
+        toast: `复制成功`,
+      };
+      utils.js('/js/plugins/copycode.js');
+    }
+  });
+</script>
+
+
+<!-- inject -->
+
+</div></body></html>
